@@ -29,6 +29,13 @@
         </input-field>
 
         <input-field type="password">
+            <name>tokenDiagnostics</name>
+            <label>Diagnostics Token</label>
+            <label lang="de-DE">Diagnose-Token</label>
+            <helpText>Bearer token for /diag/* endpoints (CANARY_TOKEN_DIAGNOSTICS). Leave blank to use the environment variable.</helpText>
+        </input-field>
+
+        <input-field type="password">
             <name>tokenAdmin</name>
             <label>Admin Token</label>
             <label lang="de-DE">Admin-Token</label>

@@ -6,6 +6,10 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Admin setting for the diagnostics token (`tokenDiagnostics`, maps to `CANARY_TOKEN_DIAGNOSTICS`) — previously the only token that could only be set via environment variable.
+
 ### Fixed
 
 - `CANARY_RATE_LIMIT_HEALTH`, `CANARY_RATE_LIMIT_MUTATION`, `CANARY_DEPLOY_QUEUE_THRESHOLD` and `CANARY_DEPLOY_FAILED_THRESHOLD` were ignored: plugin install saved the `config.xml` default values to the system config, which takes precedence over environment variables. The admin fields now start empty, so the environment variable (or the built-in default) applies until a value is set in the admin.

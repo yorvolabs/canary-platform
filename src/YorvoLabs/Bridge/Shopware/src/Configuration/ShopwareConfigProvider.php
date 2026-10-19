@@ -23,6 +23,7 @@ final class ShopwareConfigProvider implements ConfigProviderInterface
         'YorvoLabsCanary.config.tokenMonitoring'   => 'CANARY_TOKEN_MONITORING',
         'YorvoLabsCanary.config.tokenCache'        => 'CANARY_TOKEN_CACHE',
         'YorvoLabsCanary.config.tokenDeploy'       => 'CANARY_TOKEN_DEPLOY',
+        'YorvoLabsCanary.config.tokenDiagnostics'  => 'CANARY_TOKEN_DIAGNOSTICS',
         'YorvoLabsCanary.config.tokenAdmin'        => 'CANARY_TOKEN_ADMIN',
         'YorvoLabsCanary.config.allowedCidrs'      => 'CANARY_ALLOWED_CIDRS',
         'YorvoLabsCanary.config.queueThreshold'    => 'CANARY_DEPLOY_QUEUE_THRESHOLD',

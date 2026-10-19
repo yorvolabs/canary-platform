@@ -7,6 +7,7 @@ namespace YorvoLabs\Canary\Bridge\Shopware\Tests\Unit\Configuration;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
+use YorvoLabs\Canary\Auth\TokenScope;
 use YorvoLabs\Canary\Bridge\Shopware\Configuration\ShopwareConfigProvider;
 
 final class ShopwareConfigProviderTest extends TestCase
@@ -64,6 +65,7 @@ final class ShopwareConfigProviderTest extends TestCase
             'CANARY_TOKEN_MONITORING',
             'CANARY_TOKEN_CACHE',
             'CANARY_TOKEN_DEPLOY',
+            'CANARY_TOKEN_DIAGNOSTICS',
             'CANARY_TOKEN_ADMIN',
             'CANARY_ALLOWED_CIDRS',
             'CANARY_DEPLOY_QUEUE_THRESHOLD',
@@ -81,6 +83,23 @@ final class ShopwareConfigProviderTest extends TestCase
 
         foreach ($expected as $key) {
             self::assertArrayHasKey($key, $config, "Expected env key '{$key}' to be present in provider config");
+        }
+    }
+
+    #[Test]
+    public function it_exposes_an_admin_setting_for_every_token_scope(): void
+    {
+        $systemConfig = $this->createStub(SystemConfigService::class);
+        $systemConfig->method('get')->willReturn('value');
+
+        $config = (new ShopwareConfigProvider($systemConfig))->getConfig();
+
+        foreach (TokenScope::cases() as $scope) {
+            self::assertArrayHasKey(
+                $scope->envVar(),
+                $config,
+                "Token scope '{$scope->value}' has no admin setting in ShopwareConfigProvider",
+            );
         }
     }
 }

@@ -12,7 +12,7 @@ After changing any environment variable, run `bin/console cache:clear`.
 |---|---|---|
 | `CANARY_TOKEN_MONITORING` | `tokenMonitoring` | Token for `/health/*` endpoints |
 | `CANARY_TOKEN_CACHE` | `tokenCache` | Token for `/cache/*` endpoints |
-| `CANARY_TOKEN_DIAGNOSTICS` | — (env only) | Token for `/diag/*` endpoints |
+| `CANARY_TOKEN_DIAGNOSTICS` | `tokenDiagnostics` | Token for `/diag/*` endpoints |
 | `CANARY_TOKEN_DEPLOY` | `tokenDeploy` | Token for `/deploy/*` endpoints |
 | `CANARY_TOKEN_ADMIN` | `tokenAdmin` | Supertoken — satisfies all scope checks |
 
