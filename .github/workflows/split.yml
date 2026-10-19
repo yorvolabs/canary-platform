@@ -8,6 +8,10 @@ on:
 jobs:
   split:
     runs-on: ubuntu-latest
+    # Serialise runs per split repo so a later push can't race the verification step
+    concurrency:
+      group: split-${{ matrix.package.split_repository }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -66,3 +70,22 @@ jobs:
           tag: ${{ github.ref_name }}
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
+
+      # The split action ignores git errors (bad token, rejected push) and still exits 0,
+      # so compare what actually landed in the split repo with the package directory.
+      - name: Verify split repository received the package
+        env:
+          TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
+          REPO: yorvolabs/${{ matrix.package.split_repository }}
+          PACKAGE_DIR: ${{ matrix.package.local_path }}
+          REF: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'main' }}
+        run: |
+          if ! git clone --quiet --depth 1 --branch "$REF" "https://x-access-token:${TOKEN}@github.com/${REPO}.git" /tmp/split-check; then
+            echo "::error::Could not clone ${REPO}@${REF}. Check that SPLIT_MONOREPO_TOKEN has Contents: Read and write on ${REPO}."
+            exit 1
+          fi
+          if ! diff -r --exclude=.git "$PACKAGE_DIR" /tmp/split-check; then
+            echo "::error::${REPO}@${REF} does not match ${PACKAGE_DIR}. The split push did not land — check the split step log above."
+            exit 1
+          fi
+          echo "${REPO}@${REF} matches ${PACKAGE_DIR}"

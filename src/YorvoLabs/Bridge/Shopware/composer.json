@@ -23,7 +23,7 @@
     ],
     "homepage": "https://github.com/yorvolabs/canary-bridge-shopware",
     "support": {
-        "issues": "https://github.com/yorvolabs/canary/issues",
+        "issues": "https://github.com/yorvolabs/canary-platform/issues",
         "docs": "https://github.com/yorvolabs/canary-platform/tree/main/docs"
     },
     "repositories": [
@@ -69,8 +69,8 @@
             "en-GB": "https://github.com/yorvolabs"
         },
         "supportLink": {
-            "de-DE": "https://github.com/yorvolabs/canary/issues",
-            "en-GB": "https://github.com/yorvolabs/canary/issues"
+            "de-DE": "https://github.com/yorvolabs/canary-platform/issues",
+            "en-GB": "https://github.com/yorvolabs/canary-platform/issues"
         }
     },
     "config": {

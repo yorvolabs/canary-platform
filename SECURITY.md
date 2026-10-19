@@ -12,7 +12,7 @@ Please **do not** open a public GitHub issue for security vulnerabilities.
 
 Instead, report them privately via one of these channels:
 
-- **GitHub private vulnerability report:** Use the [Security Advisories](https://github.com/yorvolabs/canary/security/advisories/new) feature on this repository
+- **GitHub private vulnerability report:** Use the [Security Advisories](https://github.com/yorvolabs/canary-platform/security/advisories/new) feature on this repository
 - **Email:** poposki.darko@gmail.com (PGP key available on request)
 
 Include as much detail as possible: affected version, steps to reproduce, impact assessment, and any suggested fix.
