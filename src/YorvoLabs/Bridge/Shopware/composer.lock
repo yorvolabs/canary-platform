@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8714551ccc9145131422accaa5d1becd",
+    "content-hash": "0710e0b76d6b8c8eb48eb1aca127cfb3",
     "packages": [
         {
             "name": "brick/math",
@@ -10531,7 +10531,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../Canary",
-                "reference": "e3b1790da2fbcea17eab8891ec732712902c71b7"
+                "reference": "ef5f13031fa82830f88184f4f25d15c4a73cc7c7"
             },
             "require": {
                 "php": "^8.2",

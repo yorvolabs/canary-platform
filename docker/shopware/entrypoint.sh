@@ -65,9 +65,12 @@ install_shopware() {
 
     # Add path repositories so composer resolves our packages from mounted volumes.
     # Uses symlink=true so edits to the source are immediately reflected.
+    # The core package has no "version" field (it is released via git tags), so pin it
+    # to the bridge version — both packages are released together from the monorepo.
     log "Configuring path repositories for local packages..."
+    CANARY_VERSION=$(php -r 'echo json_decode(file_get_contents("/app/src/YorvoLabs/Bridge/Shopware/composer.json"), true)["version"];')
     composer config repositories.canary-local \
-        '{"type":"path","url":"/app/src/YorvoLabs/Canary","options":{"symlink":true}}'
+        "{\"type\":\"path\",\"url\":\"/app/src/YorvoLabs/Canary\",\"options\":{\"symlink\":true,\"versions\":{\"yorvolabs/canary\":\"${CANARY_VERSION}\"}}}"
     composer config repositories.bridge-local \
         '{"type":"path","url":"/app/src/YorvoLabs/Bridge/Shopware","options":{"symlink":true}}'
 

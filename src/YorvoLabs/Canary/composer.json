@@ -1,6 +1,5 @@
 {
     "name": "yorvolabs/canary",
-    "version": "1.0.0",
     "description": "Secure, auditable HTTP endpoints for health monitoring, cache management, and deployment automation in Symfony-based applications.",
     "type": "library",
     "license": "MIT",

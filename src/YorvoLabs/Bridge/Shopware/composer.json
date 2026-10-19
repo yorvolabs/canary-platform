@@ -30,7 +30,7 @@
         {
             "type": "path",
             "url": "../../Canary",
-            "options": {"symlink": true}
+            "options": {"symlink": true, "versions": {"yorvolabs/canary": "1.0.0"}}
         }
     ],
     "require": {

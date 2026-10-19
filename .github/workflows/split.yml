@@ -22,6 +22,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The bridge keeps a "version" field (required for Shopware Store / zip installs).
+      # Packagist skips tags that don't match it, so refuse to publish a mismatched tag.
+      - name: Verify bridge version matches tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(jq -r '.version' src/YorvoLabs/Bridge/Shopware/composer.json)
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' does not match bridge composer.json version '${version}'. Bump the version before tagging."
+            exit 1
+          fi
+
       - name: Strip dev path repository from bridge composer.json
         if: matrix.package.local_path == 'src/YorvoLabs/Bridge/Shopware'
         run: |
