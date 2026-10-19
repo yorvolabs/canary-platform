@@ -10531,7 +10531,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../Canary",
-                "reference": "ef5f13031fa82830f88184f4f25d15c4a73cc7c7"
+                "reference": "de1f6972cb9d1aff25415a4ea7eb3e3a556c3959"
             },
             "require": {
                 "php": "^8.2",
@@ -10580,7 +10580,7 @@
             ],
             "support": {
                 "issues": "https://github.com/yorvolabs/canary/issues",
-                "docs": "https://github.com/yorvolabs/canary/tree/main/docs"
+                "docs": "https://github.com/yorvolabs/canary-platform/tree/main/docs"
             },
             "transport-options": {
                 "symlink": true,

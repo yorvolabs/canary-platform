@@ -23,6 +23,7 @@ Full documentation lives in [`docs/`](docs/index.md):
 - [Admin UI](docs/admin-ui.md)
 - [Extending: Health Checks](docs/extending/health-checks.md)
 - [Extending: Deploy Hooks](docs/extending/deploy-hooks.md)
+- [Extending: Diagnostic Checks](docs/extending/diagnostic-checks.md)
 - [Extending: New Bridge](docs/extending/new-bridge.md)
 - [Deployment Checklist](docs/deployment/checklist.md)
 - [CI/CD Integration](docs/deployment/ci-cd.md)

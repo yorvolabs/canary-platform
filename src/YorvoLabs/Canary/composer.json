@@ -23,7 +23,7 @@
     "homepage": "https://github.com/yorvolabs/canary",
     "support": {
         "issues": "https://github.com/yorvolabs/canary/issues",
-        "docs": "https://github.com/yorvolabs/canary/tree/main/docs"
+        "docs": "https://github.com/yorvolabs/canary-platform/tree/main/docs"
     },
     "require": {
         "php": "^8.2",

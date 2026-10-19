@@ -79,19 +79,20 @@ All endpoints use a configurable prefix (`CANARY_ROUTE_PREFIX`, default: `canary
 
 ## Documentation
 
-Full documentation:
+Full documentation: [github.com/yorvolabs/canary-platform/tree/main/docs](https://github.com/yorvolabs/canary-platform/tree/main/docs)
 
 | Page | Description |
 |---|---|
-| [Getting Started](docs/getting-started.md) | Install, configure, first request |
-| [API Reference](docs/api-reference.md) | All endpoints, full request/response shapes |
-| [Authentication](docs/authentication.md) | Token scopes, IP allowlist, security model |
-| [Configuration](docs/configuration.md) | All environment variables and admin config fields |
-| [Admin UI](docs/admin-ui.md) | Admin panel walkthrough |
-| [Extending: Health Checks](docs/extending/health-checks.md) | Custom health checks |
-| [Extending: Deploy Hooks](docs/extending/deploy-hooks.md) | Custom pre/post-deploy hooks |
-| [Deployment Checklist](docs/deployment/checklist.md) | Pre-production checklist |
-| [CI/CD Integration](docs/deployment/ci-cd.md) | GitHub Actions, GitLab CI, Kubernetes examples |
+| [Getting Started](https://github.com/yorvolabs/canary-platform/blob/main/docs/getting-started.md) | Install, configure, first request |
+| [API Reference](https://github.com/yorvolabs/canary-platform/blob/main/docs/api-reference.md) | All endpoints, full request/response shapes |
+| [Authentication](https://github.com/yorvolabs/canary-platform/blob/main/docs/authentication.md) | Token scopes, IP allowlist, security model |
+| [Configuration](https://github.com/yorvolabs/canary-platform/blob/main/docs/configuration.md) | All environment variables and admin config fields |
+| [Admin UI](https://github.com/yorvolabs/canary-platform/blob/main/docs/admin-ui.md) | Admin panel walkthrough |
+| [Extending: Health Checks](https://github.com/yorvolabs/canary-platform/blob/main/docs/extending/health-checks.md) | Custom health checks |
+| [Extending: Deploy Hooks](https://github.com/yorvolabs/canary-platform/blob/main/docs/extending/deploy-hooks.md) | Custom pre/post-deploy hooks |
+| [Extending: Diagnostic Checks](https://github.com/yorvolabs/canary-platform/blob/main/docs/extending/diagnostic-checks.md) | Custom diagnostic checks |
+| [Deployment Checklist](https://github.com/yorvolabs/canary-platform/blob/main/docs/deployment/checklist.md) | Pre-production checklist |
+| [CI/CD Integration](https://github.com/yorvolabs/canary-platform/blob/main/docs/deployment/ci-cd.md) | GitHub Actions, GitLab CI, Kubernetes examples |
 
 ## License
 
