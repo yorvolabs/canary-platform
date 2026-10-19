@@ -1,0 +1,98 @@
+{
+    "name": "yorvolabs/canary-bridge-shopware",
+    "version": "1.0.0",
+    "description": "Shopware 6.6+ plugin bridge for yorvolabs/canary — secure health, cache, and deployment endpoints.",
+    "type": "shopware-platform-plugin",
+    "license": "MIT",
+    "keywords": [
+        "shopware",
+        "shopware-plugin",
+        "health",
+        "monitoring",
+        "deployment",
+        "cache",
+        "diagnostics",
+        "devops"
+    ],
+    "authors": [
+        {
+            "name": "Darko Poposki",
+            "email": "poposki.darko@gmail.com",
+            "homepage": "https://github.com/yorvolabs"
+        }
+    ],
+    "homepage": "https://github.com/yorvolabs/canary-bridge-shopware",
+    "support": {
+        "issues": "https://github.com/yorvolabs/canary/issues",
+        "docs": "https://github.com/yorvolabs/canary/tree/main/docs"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../Canary",
+            "options": {"symlink": true}
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "yorvolabs/canary": "^1.0",
+        "shopware/core": "^6.6"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "YorvoLabs\\Canary\\Bridge\\Shopware\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "YorvoLabs\\Canary\\Bridge\\Shopware\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "YorvoLabs\\Canary\\Bridge\\Shopware\\YorvoLabsCanary",
+        "label": {
+            "de-DE": "YorvoLabs Canary",
+            "en-GB": "YorvoLabs Canary"
+        },
+        "description": {
+            "de-DE": "Sichere HTTP-Endpunkte für Health Monitoring, Cache-Verwaltung und Deployment-Automatisierung in Shopware 6.",
+            "en-GB": "Secure, auditable HTTP endpoints for health monitoring, cache management, and deployment automation in Shopware 6."
+        },
+        "manufacturerLink": {
+            "de-DE": "https://github.com/yorvolabs",
+            "en-GB": "https://github.com/yorvolabs"
+        },
+        "supportLink": {
+            "de-DE": "https://github.com/yorvolabs/canary/issues",
+            "en-GB": "https://github.com/yorvolabs/canary/issues"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform-check": false,
+        "allow-plugins": {
+            "symfony/runtime": true
+        },
+        "platform": {
+            "ext-gd": "1",
+            "ext-intl": "1",
+            "ext-zip": "1",
+            "ext-xml": "1",
+            "ext-simplexml": "1",
+            "ext-fileinfo": "1",
+            "ext-bcmath": "1",
+            "ext-pdo": "1",
+            "ext-pdo_mysql": "1",
+            "ext-mbstring": "1",
+            "ext-curl": "1",
+            "ext-dom": "1",
+            "php": "8.2"
+        }
+    }
+}

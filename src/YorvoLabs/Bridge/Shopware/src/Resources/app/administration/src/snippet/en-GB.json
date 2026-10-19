@@ -1,0 +1,46 @@
+{
+    "yorvoLabsCanary": {
+        "general": {
+            "name": "YorvoLabs Canary",
+            "description": "Deployment health and diagnostics"
+        },
+        "overview": {
+            "title": "Canary",
+            "refresh": "Refresh"
+        },
+        "queue": {
+            "title":   "Message Queue",
+            "name":    "Queue",
+            "pending": "Pending",
+            "oldest":  "Oldest Message",
+            "failed":  "Failed",
+            "workers": "Workers"
+        },
+        "plugins": {
+            "title": "Plugins",
+            "empty": "No plugins found",
+            "columns": {
+                "name":    "Plugin",
+                "version": "Version",
+                "status":  "Status",
+                "update":  "Update Available"
+            },
+            "status": {
+                "active":   "Active",
+                "inactive": "Inactive"
+            }
+        },
+        "logs": {
+            "title":             "Application Logs",
+            "entries":           "entries",
+            "empty":             "No log entries",
+            "filterPlaceholder": "Filter by level or message..."
+        },
+        "audit": {
+            "title":        "Audit Log",
+            "entries":      "entries",
+            "notFound":     "No audit log yet",
+            "notFoundHint": "Canary has not recorded any access events. Audit logging begins once the first external API call is made."
+        }
+    }
+}

@@ -1,0 +1,299 @@
+<?xml version="1.0" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services
+               https://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <parameters>
+        <!-- Empty-string fallback for optional env vars (Elasticsearch hosts, transport DSNs).
+             Used by the default env processor so checks skip gracefully when vars are absent. -->
+        <parameter key="canary.env_default"></parameter>
+    </parameters>
+
+    <services>
+
+        <!-- ===================================================================
+             Core canary services (yorvolabs/canary)
+             =================================================================== -->
+
+        <!-- ShopwareConfigProvider: reads plugin admin UI config; values override env vars. -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Configuration\ShopwareConfigProvider">
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+        </service>
+
+        <!-- Options: built from Shopware admin UI config (primary) + env var fallback. -->
+        <service id="YorvoLabs\Canary\Configuration\Options">
+            <factory class="YorvoLabs\Canary\Configuration\Options" method="fromProvider"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Configuration\ShopwareConfigProvider"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Auth\TokenAuthenticator">
+            <factory class="YorvoLabs\Canary\Bridge\Shopware\DependencyInjection\AuthServiceFactory"
+                     method="createTokenAuthenticator"/>
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Auth\IpAllowlistChecker">
+            <factory class="YorvoLabs\Canary\Bridge\Shopware\DependencyInjection\AuthServiceFactory"
+                     method="createIpAllowlistChecker"/>
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\RateLimit\FileBasedRateLimiter">
+            <argument>%kernel.project_dir%/var/canary/rate-limit</argument>
+        </service>
+
+        <!-- RateLimiterInterface alias → FileBasedRateLimiter (no Redis dependency).
+             Override this alias in your own services.xml to swap implementations. -->
+        <service id="YorvoLabs\Canary\Contract\RateLimiterInterface"
+                 alias="YorvoLabs\Canary\RateLimit\FileBasedRateLimiter"/>
+
+        <service id="YorvoLabs\Canary\Response\ResponseFactory"/>
+
+        <service id="YorvoLabs\Canary\Response\PrometheusFormatter">
+            <argument>canary</argument>
+        </service>
+
+        <!-- RequestGuardSubscriber guards all Canary requests at kernel.request priority 256. -->
+        <service id="YorvoLabs\Canary\Auth\RequestGuardSubscriber">
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+            <argument type="service" id="YorvoLabs\Canary\Auth\TokenAuthenticator"/>
+            <argument type="service" id="YorvoLabs\Canary\Auth\IpAllowlistChecker"/>
+            <argument type="service" id="YorvoLabs\Canary\Contract\RateLimiterInterface"/>
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="YorvoLabs\Canary\Contract\AuditLoggerInterface"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <!-- ===================================================================
+             Health checks — collected via canary.health_check tag
+             =================================================================== -->
+
+        <service id="YorvoLabs\Canary\Health\HealthCheckRunner">
+            <argument type="tagged_iterator" tag="canary.health_check"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Health\DatabaseCheck">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="canary.health_check"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Health\CacheAdapterCheck">
+            <argument type="service" id="cache.object"/>
+            <tag name="canary.health_check"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Health\FilesystemCheck">
+            <argument>%kernel.project_dir%</argument>
+            <tag name="canary.health_check"/>
+        </service>
+
+        <!-- Always registered; skips TCP probing when SHOPWARE_ES_HOSTS is empty.
+             The default processor falls back to canary.env_default (empty string)
+             when the env var is absent, avoiding a runtime exception. -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Health\ElasticsearchCheck">
+            <argument>%env(default:canary.env_default:SHOPWARE_ES_HOSTS)%</argument>
+            <tag name="canary.health_check"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Health\MessageQueueCheck">
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Repository\MessengerQueueRepository"/>
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+            <tag name="canary.health_check"/>
+        </service>
+
+        <!-- Deploy hook runner — collects hooks tagged canary.deploy_hook. -->
+        <service id="YorvoLabs\Canary\Deploy\DeployHookRunner">
+            <argument type="tagged_iterator" tag="canary.deploy_hook"/>
+        </service>
+
+        <!-- ===================================================================
+             Controllers
+             =================================================================== -->
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Health\LivenessController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Health\ReadinessController">
+            <argument type="service" id="YorvoLabs\Canary\Health\HealthCheckRunner"/>
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Health\MetricsController">
+            <argument type="service" id="YorvoLabs\Canary\Health\HealthCheckRunner"/>
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="YorvoLabs\Canary\Response\PrometheusFormatter"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Repository\MessengerQueueRepository"/>
+            <argument type="service" id="order.repository"/>
+            <argument type="service" id="customer.repository"/>
+            <argument type="service" id="product.repository"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Cache\OpcacheController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- cache.http is optional — if HTTP caching is not configured, the pool
+             is null and ShopwareCacheController skips it in the full-clear response. -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Cache\ShopwareCacheController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="cache.object"/>
+            <argument type="service" id="cache.http" on-invalid="null"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Cache\AdapterFlushController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="cache.object"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- ===================================================================
+             Deploy controllers
+             =================================================================== -->
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Deploy\PreDeployController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Repository\MessengerQueueRepository"/>
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+            <argument type="service" id="YorvoLabs\Canary\Deploy\DeployHookRunner"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Deploy\PostDeployController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="YorvoLabs\Canary\Health\HealthCheckRunner"/>
+            <argument type="service" id="cache.object"/>
+            <argument type="service" id="cache.http" on-invalid="null"/>
+            <argument type="service" id="YorvoLabs\Canary\Deploy\DeployHookRunner"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Deploy\MaintenanceController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- Bypasses Shopware's route-scope validation for all Canary controllers.
+             Auth is handled by RequestGuardSubscriber; the scope check would always
+             fail because Canary routes have no sales channel or API context. -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Routing\RouteScopeWhitelist">
+            <tag name="shopware.route_scope_whitelist"/>
+        </service>
+
+        <!-- ===================================================================
+             Diagnostics
+             =================================================================== -->
+
+        <!-- MessengerQueueRepository: single source of truth for messenger_messages SQL. -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Repository\MessengerQueueRepository">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+        </service>
+
+        <!-- SensitiveValueMasker: replaces sensitive keys with [REDACTED]. -->
+        <service id="YorvoLabs\Canary\Diagnostics\SensitiveValueMasker"/>
+
+        <!-- DiagnosticsRunner: collects checks tagged canary.diagnostic. -->
+        <service id="YorvoLabs\Canary\Diagnostics\DiagnosticsRunner">
+            <argument type="tagged_iterator" tag="canary.diagnostic"/>
+        </service>
+
+        <!-- Built-in diagnostic checks -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Diagnostics\AppEnvCheck">
+            <argument>%kernel.environment%</argument>
+            <tag name="canary.diagnostic"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Diagnostics\QueueTransportCheck">
+            <argument>%env(default:canary.env_default:MESSENGER_TRANSPORT_DSN)%</argument>
+            <tag name="canary.diagnostic"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Diagnostics\MailerTransportCheck">
+            <argument>%env(default:canary.env_default:MAILER_DSN)%</argument>
+            <tag name="canary.diagnostic"/>
+        </service>
+
+        <!-- Diagnostic controllers -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\EnvController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="YorvoLabs\Canary\Diagnostics\SensitiveValueMasker"/>
+            <argument>%kernel.shopware_version%</argument>
+            <argument>%kernel.environment%</argument>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\ConfigController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="YorvoLabs\Canary\Diagnostics\SensitiveValueMasker"/>
+            <argument type="service" id="YorvoLabs\Canary\Diagnostics\DiagnosticsRunner"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\LogController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument>%kernel.project_dir%/var/log</argument>
+            <argument type="service" id="YorvoLabs\Canary\Diagnostics\SensitiveValueMasker"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\QueueController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\PluginsController">
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument type="service" id="plugin.repository"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- ===================================================================
+             Admin UI proxy
+             =================================================================== -->
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Administration\CanaryControllerLocator">
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\EnvController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\ConfigController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\LogController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\QueueController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Diagnostics\PluginsController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Health\ReadinessController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Health\MetricsController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Cache\OpcacheController"/>
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Controller\Cache\ShopwareCacheController"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Administration\Controller\CanaryAdminController">
+            <argument type="service" id="YorvoLabs\Canary\Bridge\Shopware\Administration\CanaryControllerLocator"/>
+            <argument type="service" id="YorvoLabs\Canary\Configuration\Options"/>
+            <argument type="service" id="YorvoLabs\Canary\Deploy\DeployHookRunner"/>
+            <argument>%kernel.project_dir%/var/canary/rate-limit</argument>
+            <argument type="service" id="YorvoLabs\Canary\Response\ResponseFactory"/>
+            <argument>%kernel.project_dir%/var/log</argument>
+            <argument>%env(APP_URL)%</argument>
+            <argument type="service" id="YorvoLabs\Canary\Diagnostics\SensitiveValueMasker"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <!-- ===================================================================
+             CLI commands
+             =================================================================== -->
+
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Command\GenerateTokenCommand">
+            <tag name="console.command"/>
+        </service>
+
+    </services>
+
+</container>

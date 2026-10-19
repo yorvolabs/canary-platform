@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+
+    <card>
+        <title>Authentication Tokens</title>
+        <title lang="de-DE">Authentifizierungs-Tokens</title>
+        <name>tokens</name>
+
+        <input-field type="password">
+            <name>tokenMonitoring</name>
+            <label>Monitoring Token</label>
+            <label lang="de-DE">Monitoring-Token</label>
+            <helpText>Bearer token for /health/* endpoints (CANARY_TOKEN_MONITORING). Leave blank to use the environment variable.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>tokenCache</name>
+            <label>Cache Token</label>
+            <label lang="de-DE">Cache-Token</label>
+            <helpText>Bearer token for /cache/* endpoints (CANARY_TOKEN_CACHE). Leave blank to use the environment variable.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>tokenDeploy</name>
+            <label>Deploy Token</label>
+            <label lang="de-DE">Deploy-Token</label>
+            <helpText>Bearer token for /deploy/* endpoints (CANARY_TOKEN_DEPLOY). Leave blank to use the environment variable.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>tokenAdmin</name>
+            <label>Admin Token</label>
+            <label lang="de-DE">Admin-Token</label>
+            <helpText>Bearer token with access to all scopes (CANARY_TOKEN_ADMIN). Leave blank to use the environment variable.</helpText>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Access Control</title>
+        <title lang="de-DE">Zugriffskontrolle</title>
+        <name>access</name>
+
+        <input-field type="text">
+            <name>allowedCidrs</name>
+            <label>Allowed IP Ranges</label>
+            <label lang="de-DE">Erlaubte IP-Bereiche</label>
+            <helpText>Comma-separated CIDR ranges allowed to call Canary endpoints (CANARY_ALLOWED_CIDRS). Leave blank to allow all IPs.</helpText>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Maintenance</title>
+        <title lang="de-DE">Wartungsmodus</title>
+        <name>config</name>
+
+        <input-field type="text">
+            <name>maintenanceReason</name>
+            <label>Default Maintenance Reason</label>
+            <label lang="de-DE">Standard-Wartungsgrund</label>
+            <helpText>Default reason shown when maintenance mode is enabled without an explicit reason in the API request body. Stored as YorvoLabsCanary.config.maintenanceReason.</helpText>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Deploy Thresholds</title>
+        <title lang="de-DE">Deploy-Schwellenwerte</title>
+        <name>deploy</name>
+
+        <input-field type="int">
+            <name>queueThreshold</name>
+            <label>Queue Depth Threshold</label>
+            <label lang="de-DE">Warteschlangentiefe-Schwellenwert</label>
+            <helpText>Pre-deploy check fails when pending messages exceed this value (CANARY_DEPLOY_QUEUE_THRESHOLD, default 100).</helpText>
+            <defaultValue>100</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>failedThreshold</name>
+            <label>Failed Messages Threshold</label>
+            <label lang="de-DE">Fehlgeschlagene-Nachrichten-Schwellenwert</label>
+            <helpText>Pre-deploy check fails when dead-letter count exceeds this value (CANARY_DEPLOY_FAILED_THRESHOLD, default 0).</helpText>
+            <defaultValue>0</defaultValue>
+        </input-field>
+    </card>
+
+    <card>
+        <title>Rate Limits</title>
+        <title lang="de-DE">Ratenlimits</title>
+        <name>rateLimits</name>
+
+        <input-field type="int">
+            <name>rateLimitHealth</name>
+            <label>Health Endpoint Rate Limit (requests/min)</label>
+            <label lang="de-DE">Health-Endpunkt Ratenlimit (Anfragen/Min)</label>
+            <helpText>Maximum requests per minute for /health/* endpoints (CANARY_RATE_LIMIT_HEALTH, default 60).</helpText>
+            <defaultValue>60</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>rateLimitMutation</name>
+            <label>Mutation Endpoint Rate Limit (requests/min)</label>
+            <label lang="de-DE">Mutations-Endpunkt Ratenlimit (Anfragen/Min)</label>
+            <helpText>Maximum requests per minute for cache-clearing and deploy endpoints (CANARY_RATE_LIMIT_MUTATION, default 10).</helpText>
+            <defaultValue>10</defaultValue>
+        </input-field>
+    </card>
+
+</config>

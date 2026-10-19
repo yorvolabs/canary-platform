@@ -1,0 +1,56 @@
+name: Split
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - local_path: 'src/YorvoLabs/Canary'
+            split_repository: 'canary'
+          - local_path: 'src/YorvoLabs/Bridge/Shopware'
+            split_repository: 'canary-bridge-shopware'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Strip dev path repository from bridge composer.json
+        if: matrix.package.local_path == 'src/YorvoLabs/Bridge/Shopware'
+        run: |
+          jq 'del(.repositories)' src/YorvoLabs/Bridge/Shopware/composer.json \
+            > /tmp/composer.tmp && mv /tmp/composer.tmp src/YorvoLabs/Bridge/Shopware/composer.json
+
+      # Push to main → split branch only
+      - if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: danharrin/monorepo-split-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
+        with:
+          package_directory: ${{ matrix.package.local_path }}
+          repository_organization: 'yorvolabs'
+          repository_name: ${{ matrix.package.split_repository }}
+          branch: 'main'
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+
+      # Tag push → split branch and propagate the tag (Packagist reads versions from split repo tags)
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: danharrin/monorepo-split-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
+        with:
+          package_directory: ${{ matrix.package.local_path }}
+          repository_organization: 'yorvolabs'
+          repository_name: ${{ matrix.package.split_repository }}
+          branch: 'main'
+          tag: ${{ github.ref_name }}
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"

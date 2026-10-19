@@ -1,0 +1,1122 @@
+{% block canary_overview %}
+<sw-page class="canary-overview">
+
+    {% block canary_overview_smart_bar_header %}
+    <template #smart-bar-header>
+        <h2>YorvoLabs Canary</h2>
+    </template>
+    {% endblock %}
+
+    {% block canary_overview_smart_bar_actions %}
+    <template #smart-bar-actions>
+        <sw-button variant="ghost" size="small" @click="refresh">
+            <span v-text="$tc('yorvoLabsCanary.overview.refresh')"></span>
+        </sw-button>
+    </template>
+    {% endblock %}
+
+    {% block canary_overview_content %}
+    <template #content>
+
+        <div class="co-tabs-sticky">
+        <div class="co-container">
+            <sw-tabs small :default-item="activeTab" @new-item-active="switchTab">
+                <sw-tabs-item name="overview">Overview</sw-tabs-item>
+                <sw-tabs-item name="queue">Queue</sw-tabs-item>
+                <sw-tabs-item name="plugins">Plugins</sw-tabs-item>
+                <sw-tabs-item name="logs">Logs</sw-tabs-item>
+                <sw-tabs-item name="tools">Tools</sw-tabs-item>
+            </sw-tabs>
+        </div>
+        </div>
+
+        {# ── OVERVIEW TAB ────────────────────────────────────────────────────── #}
+        {% block canary_tab_overview %}
+        <div v-show="activeTab === 'overview'">
+        <div class="co-container co-container--padded">
+
+            {# System Status Hero #}
+            <sw-card position-identifier="canary-hero-status"
+                     :style="{ marginBottom:'24px', overflow:'hidden', border:'1px solid '+heroColors.border, boxShadow:'0 4px 28px '+heroColors.shadow }">
+
+                <div class="co-card-bleed">
+
+                <div v-if="loading.readiness" class="co-loader co-loader--xl">
+                    <sw-loader></sw-loader>
+                </div>
+
+                <div v-else-if="readiness">
+
+                    {# Hero body #}
+                    <div :style="{ padding:'36px 40px', background:heroColors.bg, display:'flex', alignItems:'center', gap:'28px' }">
+
+                        {# Status circle #}
+                        <div :style="{ width:'80px', height:'80px', borderRadius:'50%', background:heroColors.circle, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', boxShadow:'0 6px 20px '+heroColors.circleShadow }">
+                            <span v-if="readiness.status === 'pass'"  class="co-status-icon">✓</span>
+                            <span v-else-if="readiness.status === 'warn'" class="co-status-icon co-status-icon--warn">!</span>
+                            <span v-else class="co-status-icon co-status-icon--fail">✕</span>
+                        </div>
+
+                        {# Headline + subtitle #}
+                        <div class="co-hero-text">
+                            <div :style="{ fontSize:'26px', fontWeight:'800', lineHeight:'1.15', color:heroColors.headline }">
+                                <span v-if="readiness.status === 'pass'">All Systems Operational</span>
+                                <span v-else-if="readiness.status === 'warn'">System Warning</span>
+                                <span v-else>System Degraded</span>
+                            </div>
+                            <div :style="{ marginTop:'8px', fontSize:'14px', color:heroColors.sub }" v-text="heroSubtitle"></div>
+                        </div>
+
+                        {# Pass ratio #}
+                        <div class="co-hero-text-right">
+                            <div :style="{ fontSize:'52px', fontWeight:'800', lineHeight:'1', color:heroColors.count, fontVariantNumeric:'tabular-nums' }"
+                                 v-text="passCount + '/' + (readiness.checks ? readiness.checks.length : 0)"></div>
+                            <div class="co-checks-label">checks passing</div>
+                        </div>
+                    </div>
+
+                    {# Check strip #}
+                    <div v-if="readiness.checks && readiness.checks.length > 0"
+                         :style="{ borderTop:'1px solid '+heroColors.border, background:'rgba(255,255,255,0.72)', display:'flex' }">
+                        <div v-for="(check, idx) in readiness.checks" :key="check.name"
+                             :style="{ flex:'1', padding:'16px 20px', borderRight: idx < readiness.checks.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none' }">
+                            <div class="co-check-item">
+                                <div :style="{ width:'8px', height:'8px', borderRadius:'50%', flexShrink:'0', background:checkColor(check.status) }"></div>
+                                <span class="co-check-name" v-text="formatCheckName(check.name)"></span>
+                            </div>
+                            <div :style="{ fontSize:'22px', fontWeight:'700', lineHeight:'1', color:checkTextColor(check.status) }"
+                                 v-text="check.duration_ms + 'ms'"></div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <p v-if="errors.readiness" class="co-error-text" v-text="errors.readiness"></p>
+
+                </div>{# end padding-reset wrapper #}
+            </sw-card>
+
+            {# Commerce Pulse #}
+            <sw-card position-identifier="canary-metrics" style="margin-bottom:16px; overflow:hidden;">
+
+                <div class="co-card-bleed">
+
+                    {# Dark header #}
+                    <div class="co-card-header co-card-header--dark">
+                        <div>
+                            <div class="co-card-header__title">Commerce Pulse</div>
+                            <div class="co-card-header__subtitle">Real-time store performance</div>
+                        </div>
+                        <div class="co-select-wrap">
+                            <select v-model="metricsHours" @change="fetchMetricsWithHours()" class="co-select--dark">
+                                <option value="1">Last 1 hour</option>
+                                <option value="6">Last 6 hours</option>
+                                <option value="24">Last 24 hours</option>
+                                <option value="168">Last 7 days</option>
+                            </select>
+                            <span class="co-select-chevron co-select-chevron--lg">▾</span>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.metrics" class="co-loader co-loader--lg">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Primary metrics grid #}
+                    <div v-if="!loading.metrics && metrics" class="co-card-body">
+                        <div class="co-metrics-grid co-metrics-grid--4col">
+
+                            {# Revenue — hero metric #}
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label">Revenue</div>
+                                <div class="co-metric__value co-metric__value--hero" style="color:var(--color-shopware,#189eff);"
+                                     v-text="formatCurrency(metrics.metrics.shop_revenue_total)"></div>
+                                <div class="co-metric__sublabel" v-text="metricsPeriodLabel"></div>
+                            </div>
+
+                            {# Orders #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Orders</div>
+                                <div class="co-metric__value"
+                                     v-text="metrics.metrics.shop_orders_count"></div>
+                                <div class="co-metric__sublabel">placed</div>
+                            </div>
+
+                            {# Active Carts #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Active Carts</div>
+                                <div class="co-metric__value"
+                                     v-text="metrics.metrics.shop_carts_active"></div>
+                                <div class="co-metric__sublabel">in progress</div>
+                            </div>
+
+                            {# New Customers #}
+                            <div class="co-metric--last">
+                                <div class="co-metric__label">New Customers</div>
+                                <div class="co-metric__value"
+                                     v-text="metrics.metrics.shop_customers_count"></div>
+                                <div class="co-metric__sublabel">registered</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Footer strip — secondary metrics #}
+                    <div v-if="metrics && !loading.metrics" class="co-card-footer co-card-footer--gap">
+                        <div class="co-footer-meta">
+                            <span class="co-footer-label">Newsletter</span>
+                            <span class="co-footer-value" v-text="metrics.metrics.shop_newsletter_subscribers"></span>
+                            <span class="co-footer-sub">subscribers</span>
+                        </div>
+                        <span class="co-divider"></span>
+                        <div class="co-footer-meta">
+                            <span class="co-footer-label">Products</span>
+                            <span class="co-footer-value" v-text="metrics.metrics.shop_products_count"></span>
+                            <span class="co-footer-sub">listed</span>
+                        </div>
+                    </div>
+
+                    <p v-if="errors.metrics" class="co-error-footer" v-text="errors.metrics"></p>
+
+                </div>
+            </sw-card>
+
+            {# Queue Summary #}
+            <sw-card position-identifier="canary-queue-summary" style="margin-bottom:16px; overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Queue Health</div>
+                            <div class="co-card-header__subtitle">Async job processing pipeline</div>
+                        </div>
+                        <div v-if="metrics || diagQueue"
+                             :style="{
+                                 display:'inline-flex', alignItems:'center', gap:'6px',
+                                 padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:'700',
+                                 background: queueHealthStatus.pillBg,
+                                 color: queueHealthStatus.pillColor,
+                                 border: '1px solid ' + queueHealthStatus.pillBorder
+                             }">
+                            <span :style="{ width:'6px', height:'6px', borderRadius:'50%', background:queueHealthStatus.dotColor, flexShrink:'0', display:'inline-block' }"></span>
+                            <span v-text="queueHealthStatus.label"></span>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.metrics && loading.queue" class="co-loader co-loader--md">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Metrics grid #}
+                    <div v-else-if="metrics" class="co-card-body">
+                        <div class="co-metrics-grid co-metrics-grid--4col" style="margin-bottom:20px;">
+
+                            {# Failed — hero, most critical #}
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label">Failed</div>
+                                <div :style="{ fontSize:'42px', fontWeight:'800', lineHeight:'1', letterSpacing:'-1.5px', color: metrics.metrics.shop_queue_failed > 0 ? '#dc2626' : '#16a34a' }"
+                                     v-text="metrics.metrics.shop_queue_failed"></div>
+                                <div class="co-metric__sublabel">dead-letter queue</div>
+                            </div>
+
+                            {# Pending #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Pending</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: metrics.metrics.shop_queue_depth > 100 ? '#d97706' : metrics.metrics.shop_queue_depth > 0 ? '#0f172a' : '#16a34a' }"
+                                     v-text="metrics.metrics.shop_queue_depth"></div>
+                                <div class="co-metric__sublabel">awaiting processing</div>
+                            </div>
+
+                            {# Workers #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Workers</div>
+                                <div v-if="diagQueue">
+                                    <div :style="{ fontSize:'22px', fontWeight:'800', lineHeight:'1', color: diagQueue.workers.detected ? '#16a34a' : '#dc2626' }"
+                                         v-text="diagQueue.workers.detected ? 'Online' : 'Offline'"></div>
+                                    <div class="co-metric__sublabel" v-text="diagQueue.workers.note"></div>
+                                </div>
+                                <div v-else style="font-size:22px; font-weight:800; line-height:1; color:#cbd5e1;">—</div>
+                            </div>
+
+                            {# Oldest pending message #}
+                            <div class="co-metric--last">
+                                <div class="co-metric__label">Oldest</div>
+                                <div v-if="oldestPendingSeconds !== null"
+                                     :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: oldestPendingSeconds > 300 ? '#dc2626' : oldestPendingSeconds > 60 ? '#d97706' : '#0f172a' }">
+                                    <span v-text="oldestPendingSeconds"></span><span style="font-size:18px; font-weight:600; margin-left:1px;">s</span>
+                                </div>
+                                <div v-else style="font-size:34px; font-weight:800; line-height:1; color:#cbd5e1;">—</div>
+                                <div class="co-metric__sublabel">message age</div>
+                            </div>
+
+                        </div>
+
+                        {# Status description + CTA footer #}
+                        <div style="padding-top:16px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:flex-start; gap:8px; flex:1; min-width:0;">
+                                <span :style="{ width:'7px', height:'7px', borderRadius:'50%', background:queueHealthStatus.dotColor, flexShrink:'0', marginTop:'4px', display:'inline-block' }"></span>
+                                <span style="font-size:12px; color:#475569; line-height:1.5;" v-text="queueHealthStatus.description"></span>
+                            </div>
+                            <button @click="switchTab('queue')" class="co-inspect-btn">
+                                Inspect Queue →
+                            </button>
+                        </div>
+
+                        <div v-if="errors.metrics || errors.queue" class="co-error-block"
+                             v-text="errors.metrics || errors.queue"></div>
+                    </div>
+
+                </div>
+            </sw-card>
+
+            {# Config Validation #}
+            <sw-card position-identifier="canary-config-checks" style="margin-bottom:16px; overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Configuration Checks</div>
+                            <div class="co-card-header__subtitle">Settings validation &amp; token status</div>
+                        </div>
+                        <div v-if="diagConfig && diagConfig.validation">
+                            <div v-if="diagConfig.validation.filter(c => !c.pass).length === 0"
+                                 class="co-pill co-pill--green">
+                                <span class="co-pill__dot"></span>
+                                All passing
+                            </div>
+                            <div v-else class="co-pill co-pill--red">
+                                <span class="co-pill__dot"></span>
+                                <span v-text="diagConfig.validation.filter(c => !c.pass).length"></span> failing
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.config" class="co-loader co-loader--sm">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Content #}
+                    <div v-else class="co-card-body--sm">
+
+                        {# Validation checks #}
+                        <div v-if="diagConfig && diagConfig.validation" class="co-list" style="margin-bottom:20px;">
+                            <div class="co-list__header">
+                                <span class="co-list__header-label">Validation</span>
+                            </div>
+                            <div v-for="(check, idx) in diagConfig.validation" :key="check.name"
+                                 :style="{ borderBottom: idx < diagConfig.validation.length - 1 ? '1px solid #f1f5f9' : 'none' }"
+                                 class="co-list__row">
+                                <span class="co-list__row-label" v-text="check.name"></span>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span v-if="check.message" style="font-size:12px; color:#94a3b8;" v-text="check.message"></span>
+                                    <span :style="{
+                                              display:'inline-flex', alignItems:'center', gap:'5px',
+                                              padding:'3px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'700',
+                                              background: check.pass ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
+                                              color: check.pass ? '#16a34a' : '#dc2626',
+                                              border: '1px solid ' + (check.pass ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)')
+                                          }">
+                                        <span :style="{ width:'5px', height:'5px', borderRadius:'50%', background: check.pass ? '#16a34a' : '#dc2626', display:'inline-block', flexShrink:'0' }"></span>
+                                        <span v-text="check.pass ? 'Pass' : 'Fail'"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Token scopes #}
+                        <div v-if="tokenStatusList.length > 0" class="co-list">
+                            <div class="co-list__header">
+                                <span class="co-list__header-label">API Token Scopes</span>
+                            </div>
+                            <div v-for="(scope, idx) in tokenStatusList" :key="scope.key"
+                                 :style="{ borderBottom: idx < tokenStatusList.length - 1 ? '1px solid #f1f5f9' : 'none' }"
+                                 class="co-list__row">
+                                <span class="co-list__row-label" v-text="scope.label"></span>
+                                <span :style="{
+                                          display:'inline-flex', alignItems:'center', gap:'5px',
+                                          padding:'3px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'700',
+                                          background: scope.configured ? 'rgba(74,222,128,0.12)' : 'rgba(203,213,225,0.2)',
+                                          color: scope.configured ? '#16a34a' : '#64748b',
+                                          border: '1px solid ' + (scope.configured ? 'rgba(74,222,128,0.3)' : 'rgba(203,213,225,0.4)')
+                                      }">
+                                    <span :style="{ width:'5px', height:'5px', borderRadius:'50%', background: scope.configured ? '#16a34a' : '#94a3b8', display:'inline-block', flexShrink:'0' }"></span>
+                                    <span v-text="scope.configured ? 'Configured' : 'Not set'"></span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="errors.config" class="co-error-block" v-text="errors.config"></div>
+                    </div>
+
+                </div>
+            </sw-card>
+
+            {# Deploy Hooks #}
+            <sw-card position-identifier="canary-deploy-hooks" style="margin-bottom:16px; overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Deploy Hooks</div>
+                            <div class="co-card-header__subtitle">Lifecycle automation scripts</div>
+                        </div>
+                        <div v-if="deployHooks" class="co-pill co-pill--slate">
+                            <span class="co-pill__dot"></span>
+                            <span v-text="deployHooks.hooks.length"></span> registered
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.deployHooks" class="co-loader co-loader--xs">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Content #}
+                    <div v-else class="co-card-body--sm">
+
+                        {# Empty state #}
+                        <div v-if="!deployHooks || deployHooks.hooks.length === 0" class="co-empty-state">
+                            No deploy hooks registered
+                        </div>
+
+                        {# Hook list #}
+                        <div v-else class="co-list">
+                            <div v-for="(hook, idx) in deployHooks.hooks" :key="hook.name"
+                                 :style="{ borderBottom: idx < deployHooks.hooks.length - 1 ? '1px solid #f1f5f9' : 'none' }"
+                                 class="co-list__row">
+                                <span class="co-list__row-label co-list__row-label--mono" v-text="hook.name"></span>
+                                <span style="display:inline-flex; align-items:center; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;"
+                                      v-text="hook.phase">
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="errors.deployHooks" class="co-error-block" v-text="errors.deployHooks"></div>
+                    </div>
+
+                </div>
+            </sw-card>
+
+            {# Rate Limiting #}
+            <sw-card position-identifier="canary-rate-limits" style="overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Rate Limiting</div>
+                            <div class="co-card-header__subtitle">Request throttle configuration</div>
+                        </div>
+                        <div v-if="rateLimitStats">
+                            <div v-if="rateLimitStats.active_buckets === 0" class="co-pill co-pill--slate">
+                                <span class="co-pill__dot"></span>
+                                Quiet
+                            </div>
+                            <div v-else class="co-pill co-pill--yellow">
+                                <span class="co-pill__dot"></span>
+                                <span v-text="rateLimitStats.active_buckets"></span> active
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.rateLimitStats" class="co-loader co-loader--sm">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Content #}
+                    <div v-else-if="rateLimitStats" class="co-card-body--md">
+
+                        {# Metrics grid #}
+                        <div class="co-metrics-grid co-metrics-grid--4equal" style="margin-bottom:20px;">
+
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label co-metric__label--sm">Health limit</div>
+                                <div class="co-metric__value" v-text="rateLimitStats.configured.health"></div>
+                                <div class="co-metric__sublabel co-metric__sublabel--sm">req / min</div>
+                            </div>
+
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label co-metric__label--sm">Mutation limit</div>
+                                <div class="co-metric__value" v-text="rateLimitStats.configured.mutation"></div>
+                                <div class="co-metric__sublabel co-metric__sublabel--sm">req / min</div>
+                            </div>
+
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label co-metric__label--sm">Active buckets</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: rateLimitStats.active_buckets > 0 ? '#d97706' : '#16a34a' }"
+                                     v-text="rateLimitStats.active_buckets"></div>
+                                <div class="co-metric__sublabel co-metric__sublabel--sm">last 60s</div>
+                            </div>
+
+                            <div class="co-metric--last">
+                                <div class="co-metric__label co-metric__label--sm">Total hits</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: rateLimitStats.total_hits_last_minute > 0 ? '#d97706' : '#16a34a' }"
+                                     v-text="rateLimitStats.total_hits_last_minute"></div>
+                                <div class="co-metric__sublabel co-metric__sublabel--sm">last 60s</div>
+                            </div>
+
+                        </div>
+
+                        <div class="co-window-label">
+                            Window size: <strong style="color:#475569;" v-text="rateLimitStats.window_seconds + 's'"></strong>
+                        </div>
+
+                        <div v-if="errors.rateLimitStats" class="co-error-block" v-text="errors.rateLimitStats"></div>
+                    </div>
+
+                </div>
+            </sw-card>
+
+        </div>
+        </div>
+        {% endblock %}
+
+        {# ── QUEUE TAB ───────────────────────────────────────────────────────── #}
+        {% block canary_tab_queue %}
+        <div v-show="activeTab === 'queue'">
+        <div class="co-container co-container--padded">
+            <sw-card position-identifier="canary-queue" style="overflow:hidden;">
+
+                <div class="co-card-bleed">
+
+                    {# Dark header #}
+                    <div class="co-card-header co-card-header--dark">
+                        <div>
+                            <div class="co-card-header__title">Message Queue</div>
+                            <div class="co-card-header__subtitle">Async job processing pipeline</div>
+                        </div>
+                        <div v-if="diagQueue"
+                             :style="{
+                                 display:'inline-flex', alignItems:'center', gap:'6px',
+                                 padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:'700',
+                                 background: diagQueue.workers.detected ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)',
+                                 color: diagQueue.workers.detected ? '#4ade80' : '#f87171',
+                                 border: '1px solid ' + (diagQueue.workers.detected ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)')
+                             }">
+                            <span :style="{ width:'6px', height:'6px', borderRadius:'50%', flexShrink:'0', background: diagQueue.workers.detected ? '#4ade80' : '#f87171' }"></span>
+                            <span v-text="diagQueue.workers.note"></span>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.queue" class="co-loader co-loader--lg">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Stats + breakdown #}
+                    <div v-if="!loading.queue && diagQueue" class="co-card-body">
+
+                        {# Top stats grid #}
+                        <div class="co-metrics-grid co-metrics-grid--3col" style="margin-bottom:28px;">
+
+                            {# Pending — hero #}
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label">Pending</div>
+                                <div :style="{ fontSize:'42px', fontWeight:'800', lineHeight:'1', letterSpacing:'-1.5px', color: totalPendingDepth === 0 ? '#16a34a' : totalPendingDepth < 50 ? '#d97706' : '#dc2626' }"
+                                     v-text="totalPendingDepth"></div>
+                                <div class="co-metric__sublabel">messages queued</div>
+                            </div>
+
+                            {# Failed #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Failed</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: diagQueue.failed.count > 0 ? '#dc2626' : '#16a34a' }"
+                                     v-text="diagQueue.failed.count"></div>
+                                <div class="co-metric__sublabel">dead-letter</div>
+                            </div>
+
+                            {# Oldest age #}
+                            <div class="co-metric--last">
+                                <div class="co-metric__label">Oldest</div>
+                                <div v-if="oldestPendingSeconds !== null"
+                                     :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: oldestPendingSeconds > 300 ? '#dc2626' : oldestPendingSeconds > 60 ? '#d97706' : '#0f172a' }">
+                                    <span v-text="oldestPendingSeconds"></span><span style="font-size:18px; font-weight:600; margin-left:1px;">s</span>
+                                </div>
+                                <div v-else style="font-size:34px; font-weight:800; line-height:1; color:var(--color-gray-300,#cbd5e1);">—</div>
+                                <div class="co-metric__sublabel">message age</div>
+                            </div>
+
+                        </div>
+
+                        {# Per-queue breakdown #}
+                        <div style="border-top:1px solid var(--color-gray-100,#f1f5f9); padding-top:20px;">
+                            <div class="co-section-header">Breakdown by Queue</div>
+                            <div v-for="q in diagQueue.queues" :key="q.name" class="co-queue-row">
+                                <div class="co-queue-name" v-text="q.name"></div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span class="co-queue-stat-label">Depth</span>
+                                    <span :style="{ fontSize:'14px', fontWeight:'700', minWidth:'30px', textAlign:'right', color: q.depth > 0 ? '#d97706' : '#16a34a' }"
+                                          v-text="q.depth"></span>
+                                </div>
+                                <span class="co-divider"></span>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span class="co-queue-stat-label">Oldest</span>
+                                    <span v-if="q.oldest_age_seconds !== null" style="font-size:14px; font-weight:700; color:#0f172a;">
+                                        <span v-text="q.oldest_age_seconds"></span>s
+                                    </span>
+                                    <span v-else style="font-size:14px; font-weight:700; color:var(--color-gray-300,#cbd5e1);">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {# Footer — oldest failed timestamp (only when there are failures) #}
+                    <div v-if="diagQueue && !loading.queue && diagQueue.failed.oldest_failed_at"
+                         class="co-card-footer co-card-footer--gap">
+                        <span class="co-footer-label">Oldest failed at</span>
+                        <span style="font-size:13px; font-weight:600; color:#dc2626;" v-text="diagQueue.failed.oldest_failed_at"></span>
+                    </div>
+
+                    <p v-if="errors.queue" class="co-error-footer" v-text="errors.queue"></p>
+
+                </div>
+            </sw-card>
+        </div>
+        </div>
+        {% endblock %}
+
+        {# ── PLUGINS TAB ─────────────────────────────────────────────────────── #}
+        {% block canary_tab_plugins %}
+        <div v-show="activeTab === 'plugins'">
+        <div class="co-container co-container--padded">
+            <sw-card position-identifier="canary-plugins" style="overflow:hidden;">
+
+                <div class="co-card-bleed">
+
+                    {# Dark header #}
+                    <div class="co-card-header co-card-header--dark">
+                        <div>
+                            <div class="co-card-header__title">Plugins</div>
+                            <div class="co-card-header__subtitle">Installed Shopware extensions</div>
+                        </div>
+                        <div v-if="diagPlugins">
+                            <div v-if="pluginCounts.updates > 0" class="co-pill co-pill--yellow">
+                                <span v-text="pluginCounts.updates"></span>
+                                <span>update<span v-if="pluginCounts.updates !== 1">s</span> available</span>
+                            </div>
+                            <div v-else class="co-pill co-pill--green">
+                                All up to date
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.plugins" class="co-loader co-loader--lg">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Stats + plugin list #}
+                    <div v-if="!loading.plugins && diagPlugins" class="co-card-body">
+
+                        {# Stats grid #}
+                        <div class="co-metrics-grid co-metrics-grid--4col" style="margin-bottom:28px;">
+
+                            {# Installed — hero #}
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label">Installed</div>
+                                <div class="co-metric__value co-metric__value--hero" v-text="pluginCounts.total"></div>
+                                <div class="co-metric__sublabel">total plugins</div>
+                            </div>
+
+                            {# Active #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Active</div>
+                                <div style="font-size:34px; font-weight:800; line-height:1; color:#16a34a;" v-text="pluginCounts.active"></div>
+                                <div class="co-metric__sublabel">running</div>
+                            </div>
+
+                            {# Inactive #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Inactive</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: pluginCounts.inactive > 0 ? '#d97706' : '#0f172a' }"
+                                     v-text="pluginCounts.inactive"></div>
+                                <div class="co-metric__sublabel">disabled</div>
+                            </div>
+
+                            {# Updates #}
+                            <div class="co-metric--last">
+                                <div class="co-metric__label">Updates</div>
+                                <div :style="{ fontSize:'34px', fontWeight:'800', lineHeight:'1', color: pluginCounts.updates > 0 ? '#d97706' : '#0f172a' }"
+                                     v-text="pluginCounts.updates"></div>
+                                <div class="co-metric__sublabel">available</div>
+                            </div>
+
+                        </div>
+
+                        {# Plugin list #}
+                        <div style="border-top:1px solid var(--color-gray-100,#f1f5f9); padding-top:20px;">
+                            <div class="co-plugin-header">
+                                <span class="co-plugin-name co-plugin-col-label">Plugin</span>
+                                <span class="co-plugin-version co-plugin-col-label">Version</span>
+                                <span class="co-plugin-status co-plugin-col-label">Status</span>
+                                <span class="co-plugin-upgrade co-plugin-col-label">Update</span>
+                            </div>
+                            <div v-for="plugin in diagPlugins.plugins" :key="plugin.name" class="co-plugin-row">
+                                <div class="co-plugin-name" v-text="plugin.name"></div>
+                                <div class="co-plugin-version" v-text="plugin.version"></div>
+                                <div class="co-plugin-status">
+                                    <div :style="{
+                                        display:'inline-flex', alignItems:'center',
+                                        padding:'2px 9px', borderRadius:'20px', fontSize:'10px', fontWeight:'700',
+                                        background: plugin.active ? 'rgba(22,163,74,0.1)' : 'rgba(107,114,128,0.1)',
+                                        color: plugin.active ? '#16a34a' : '#6b7280'
+                                    }" v-text="plugin.active ? 'Active' : 'Inactive'"></div>
+                                </div>
+                                <div class="co-plugin-upgrade">
+                                    <div v-if="plugin.upgrade_version"
+                                         style="display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:20px; font-size:10px; font-weight:700; background:rgba(217,119,6,0.1); color:#d97706;">
+                                        <span>→</span><span v-text="plugin.upgrade_version"></span>
+                                    </div>
+                                    <span v-else style="font-size:13px; color:var(--color-gray-300,#cbd5e1);">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <p v-if="errors.plugins" class="co-error-footer" v-text="errors.plugins"></p>
+
+                </div>
+            </sw-card>
+        </div>
+        </div>
+        {% endblock %}
+
+        {# ── LOGS TAB ────────────────────────────────────────────────────────── #}
+        {% block canary_tab_logs %}
+        <div v-show="activeTab === 'logs'">
+        <div class="co-container co-container--padded">
+
+            {# Application Logs #}
+            <sw-card position-identifier="canary-logs" style="margin-bottom:16px; overflow:hidden;">
+
+                <div class="co-card-bleed">
+
+                    {# Dark header #}
+                    <div class="co-card-header co-card-header--dark">
+                        <div>
+                            <div class="co-card-header__title">Application Logs</div>
+                            <div class="co-card-header__subtitle">Runtime event stream</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <div v-if="diagLogs" class="co-header-meta">
+                                <span v-text="diagLogs.file"></span> &mdash; <span v-text="diagLogs.lines_returned"></span> entries
+                            </div>
+                            <div class="co-select-group">
+                                <label>File</label>
+                                <div class="co-select-wrap">
+                                    <select v-model="selectedLog" @change="fetchDiagLogsWithFile()" class="co-select--dark-sm" style="min-width:160px;">
+                                        <option v-for="f in logFileOptions" :key="f.value" :value="f.value" v-text="f.label"></option>
+                                    </select>
+                                    <span class="co-select-chevron co-select-chevron--sm">▾</span>
+                                </div>
+                            </div>
+                            <div class="co-select-group">
+                                <label>Show last</label>
+                                <div class="co-select-wrap">
+                                    <select v-model="logLines" @change="fetchDiagLogsWithLines()" class="co-select--dark-sm" style="min-width:110px;">
+                                        <option value="10">10 entries</option>
+                                        <option value="25">25 entries</option>
+                                        <option value="50">50 entries</option>
+                                        <option value="100">100 entries</option>
+                                    </select>
+                                    <span class="co-select-chevron co-select-chevron--sm">▾</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Summary pills row #}
+                    <div v-if="diagLogs && diagLogs.entries" class="co-log-pills">
+                        <div class="co-pill co-pill--red">
+                            <span class="co-pill__dot"></span>
+                            <span v-text="logLevelCounts.error"></span> Errors
+                        </div>
+                        <div class="co-pill co-pill--yellow">
+                            <span class="co-pill__dot"></span>
+                            <span v-text="logLevelCounts.warning"></span> Warnings
+                        </div>
+                        <div style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; background:rgba(96,165,250,0.12); color:#2563eb; border:1px solid rgba(96,165,250,0.25);">
+                            <span style="width:6px; height:6px; border-radius:50%; flex-shrink:0; background:#2563eb; display:inline-block;"></span>
+                            <span v-text="logLevelCounts.info"></span> Info
+                        </div>
+                        <div style="display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; background:rgba(148,163,184,0.12); color:#64748b; border:1px solid rgba(148,163,184,0.25);">
+                            <span style="width:6px; height:6px; border-radius:50%; flex-shrink:0; background:#64748b; display:inline-block;"></span>
+                            <span v-text="logLevelCounts.debug"></span> Debug
+                        </div>
+                    </div>
+
+                    {# Content area #}
+                    <div style="padding:20px 32px 24px;">
+
+                        <div v-if="loading.logs" style="display:flex; justify-content:center; padding:40px 0;">
+                            <sw-loader></sw-loader>
+                        </div>
+
+                        <div v-else-if="errors.logs" style="padding:16px; border-radius:8px; background:rgba(220,38,38,0.06); border:1px solid rgba(220,38,38,0.2); color:#dc2626; font-size:13px;" v-text="errors.logs"></div>
+
+                        <template v-else>
+                            {# Filter input #}
+                            <div class="co-log-filter-wrap">
+                                <span class="co-log-filter-icon">🔍</span>
+                                <input
+                                    v-model="logFilter"
+                                    placeholder="Filter by level, message, or context..."
+                                    class="co-log-filter" />
+                            </div>
+
+                            {# Empty state #}
+                            <div v-if="filteredLogEntries.length === 0" class="co-empty-state--lg">
+                                No log entries to display
+                            </div>
+
+                            {# Log entry list #}
+                            <div class="co-list">
+                                <div v-for="(entry, index) in filteredLogEntries" :key="index"
+                                     :style="{ borderBottom: index < filteredLogEntries.length - 1 ? '1px solid #f1f5f9' : 'none' }">
+
+                                    <div @click="toggleLogEntry(index)" class="co-log-row">
+                                        <sw-label :variant="logLevelVariant(logEntryLevel(entry))" appearance="pill">
+                                            <span v-text="logEntryLevel(entry)"></span>
+                                        </sw-label>
+                                        <span class="co-log-timestamp" v-text="logEntryTimestamp(entry)"></span>
+                                        <span class="co-log-message" v-text="logEntryMessage(entry)"></span>
+                                        <span class="co-log-expand"
+                                              :style="{ transform: expandedLogEntries[index] ? 'rotate(90deg)' : 'none' }">▶</span>
+                                    </div>
+
+                                    <div v-show="expandedLogEntries[index]" class="co-log-expanded">
+                                        <pre class="co-log-pre"
+                                             v-text="isJsonEntry(entry) ? stringify(entry) : entry"></pre>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </template>
+
+                    </div>
+
+                </div>
+
+            </sw-card>
+
+        </div>
+        </div>
+        {% endblock %}
+
+        {# ── TOOLS TAB ───────────────────────────────────────────────────────── #}
+        {% block canary_tab_tools %}
+        <div v-show="activeTab === 'tools'">
+        <div class="co-container co-container--padded">
+
+            {# OPcache #}
+            <sw-card position-identifier="canary-cache-opcache" style="margin-bottom:16px; overflow:hidden;">
+
+                <div class="co-card-bleed">
+
+                    {# Dark header #}
+                    <div class="co-card-header co-card-header--dark">
+                        <div>
+                            <div class="co-card-header__title">OPcache</div>
+                            <div class="co-card-header__subtitle">PHP compiled script cache</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div v-if="opcache"
+                                 :style="{
+                                     display:'inline-flex', alignItems:'center', gap:'6px',
+                                     padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:'700',
+                                     background: opcache.enabled ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)',
+                                     color: opcache.enabled ? '#4ade80' : '#f87171',
+                                     border: '1px solid ' + (opcache.enabled ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)')
+                                 }">
+                                <span :style="{ width:'6px', height:'6px', borderRadius:'50%', flexShrink:'0', background: opcache.enabled ? '#4ade80' : '#f87171' }"></span>
+                                <span v-text="opcache.enabled ? 'Enabled' : 'Disabled'"></span>
+                            </div>
+                            <div v-if="opcache && opcache.cache_full" class="co-pill co-pill--yellow">
+                                Cache Full
+                            </div>
+                            <div v-if="opcache && opcache.restart_pending" class="co-pill co-pill--yellow">
+                                Restart Pending
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.opcache" class="co-loader co-loader--lg">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Metrics grid — OPcache enabled #}
+                    <div v-if="!loading.opcache && opcache && opcache.enabled" class="co-card-body">
+                        <div class="co-metrics-grid co-metrics-grid--4col">
+
+                            {# Hit Rate — hero metric #}
+                            <div class="co-metric--hero">
+                                <div class="co-metric__label">Hit Rate</div>
+                                <div :style="{ fontSize:'42px', fontWeight:'800', lineHeight:'1', letterSpacing:'-1.5px', color: opcache.statistics.hit_rate >= 95 ? '#16a34a' : opcache.statistics.hit_rate >= 80 ? '#d97706' : '#dc2626' }">
+                                    <span v-text="opcache.statistics.hit_rate"></span><span style="font-size:22px; font-weight:600; margin-left:1px;">%</span>
+                                </div>
+                                <div class="co-progress-bar">
+                                    <div :style="{ width: opcache.statistics.hit_rate + '%', height:'100%', borderRadius:'3px', background: opcache.statistics.hit_rate >= 95 ? '#16a34a' : opcache.statistics.hit_rate >= 80 ? '#d97706' : '#dc2626' }"></div>
+                                </div>
+                                <div class="co-metric__sublabel">cache efficiency</div>
+                            </div>
+
+                            {# Cached Scripts #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Scripts</div>
+                                <div class="co-metric__value" v-text="opcache.statistics.cached_scripts"></div>
+                                <div class="co-metric__sublabel">compiled</div>
+                            </div>
+
+                            {# Hits #}
+                            <div class="co-metric--mid">
+                                <div class="co-metric__label">Hits</div>
+                                <div class="co-metric__value" v-text="opcache.statistics.hits"></div>
+                                <div class="co-metric__sublabel">from cache</div>
+                            </div>
+
+                            {# Misses #}
+                            <div class="co-metric--last">
+                                <div class="co-metric__label">Misses</div>
+                                <div class="co-metric__value" v-text="opcache.statistics.misses"></div>
+                                <div class="co-metric__sublabel">recompiled</div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    {# Disabled state #}
+                    <div v-if="!loading.opcache && opcache && !opcache.enabled" class="co-disabled-state">
+                        <div class="co-disabled-state__title">OPcache is disabled</div>
+                        <div class="co-disabled-state__desc">Enable <code>opcache.enable=1</code> in php.ini to activate the compiled script cache.</div>
+                    </div>
+
+                    {# Footer strip — memory usage + reset action #}
+                    <div v-if="opcache && !loading.opcache" class="co-card-footer co-card-footer--between">
+                        <div style="display:flex; align-items:center; gap:20px;">
+                            <div class="co-footer-meta">
+                                <span class="co-footer-label">Memory</span>
+                                <span class="co-footer-value" v-text="formatBytes(opcache.memory.used_bytes)"></span>
+                                <span class="co-footer-sub">/ <span v-text="formatBytes(opcache.memory.used_bytes + opcache.memory.free_bytes)"></span> — <span v-text="opcacheUsedPercent()"></span>% used</span>
+                            </div>
+                            <div v-if="opcache.memory.wasted_bytes > 0" class="co-footer-meta">
+                                <span class="co-divider"></span>
+                                <span class="co-footer-label">Wasted</span>
+                                <span style="font-size:14px; font-weight:700; color:#d97706;" v-text="formatBytes(opcache.memory.wasted_bytes)"></span>
+                                <span class="co-footer-sub">(<span v-text="opcache.memory.wasted_percent"></span>%)</span>
+                            </div>
+                        </div>
+                        <sw-button size="small" variant="danger"
+                                   :isLoading="cacheResetPending"
+                                   @click="resetOpcache">
+                            <span>Reset OPcache</span>
+                        </sw-button>
+                    </div>
+
+                    <p v-if="errors.opcache" class="co-error-footer" v-text="errors.opcache"></p>
+
+                </div>
+            </sw-card>
+
+            {# Shopware Cache #}
+            <sw-card position-identifier="canary-cache-shopware" style="margin-bottom:16px; overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Shopware Cache</div>
+                            <div class="co-card-header__subtitle">Object cache · HTTP cache</div>
+                        </div>
+                        <div class="co-pill co-pill--slate">
+                            <span class="co-pill__dot"></span>
+                            Ready
+                        </div>
+                    </div>
+
+                    {# Content #}
+                    <div class="co-card-body--md">
+                        <div style="display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:220px;">
+                                <div style="font-size:13px; color:#475569; line-height:1.6; margin-bottom:16px;">
+                                    Flushes <strong>cache.object</strong> and the HTTP reverse-proxy cache (if enabled). Symfony container &amp; routing caches are <em>not</em> affected — safe to run without a PHP restart.
+                                </div>
+                                <div v-if="errors.cache" class="co-error-block" style="margin-bottom:12px;" v-text="errors.cache"></div>
+                            </div>
+                            <div class="co-action-panel">
+                                <div class="co-action-panel__label">Action</div>
+                                <sw-button variant="ghost"
+                                           :isLoading="cacheShopwarePending"
+                                           @click="clearShopwareCache">
+                                    <span>Clear All Caches</span>
+                                </sw-button>
+                                <div class="co-action-panel__hint">No PHP restart required</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </sw-card>
+
+            {# Token Generator #}
+            <sw-card position-identifier="canary-token-gen" style="margin-bottom:16px; overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Slate header #}
+                    <div class="co-card-header co-card-header--slate">
+                        <div>
+                            <div class="co-card-header__title">Token Generator</div>
+                            <div class="co-card-header__subtitle">Cryptographic API credentials</div>
+                        </div>
+                        <div class="co-select-group">
+                            <label>Scope</label>
+                            <div class="co-select-wrap">
+                                <select v-model="tokenScope" class="co-select--dark-sm" style="min-width:220px;">
+                                    <option value="monitoring">monitoring — read-only health &amp; metrics</option>
+                                    <option value="cache">cache — cache management</option>
+                                    <option value="diagnostics">diagnostics — env, logs, queue</option>
+                                    <option value="deploy">deploy — deployment lifecycle</option>
+                                    <option value="admin">admin — all scopes</option>
+                                </select>
+                                <span class="co-select-chevron co-select-chevron--sm">▾</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Content #}
+                    <div class="co-card-body--md">
+
+                        <div style="font-size:13px; color:#475569; line-height:1.6; margin-bottom:20px;">
+                            Mirrors <code class="co-inline-code">bin/console canary:token:generate &lt;scope&gt;</code> —
+                            select a scope above, generate a token, then add the output line to your
+                            <code class="co-inline-code">.env</code> file or secret manager.
+                        </div>
+
+                        <div style="display:flex; gap:8px; align-items:center; margin-bottom:20px;">
+                            <sw-button variant="ghost" @click="generateToken">
+                                <span>Generate Token</span>
+                            </sw-button>
+                            <sw-button v-if="generatedToken" variant="ghost" @click="copyEnvLine">
+                                <span>Copy .env Line</span>
+                            </sw-button>
+                        </div>
+
+                        <template v-if="generatedToken">
+                            <div class="co-token-box">
+                                <div class="co-token-box__header">
+                                    <span class="co-token-box__label">Add to .env / secret manager</span>
+                                </div>
+                                <div class="co-token-box__value" v-text="generatedEnvLine"></div>
+                            </div>
+                            <div class="co-token-hint">
+                                Generated locally in your browser — never sent to the server.
+                            </div>
+                        </template>
+
+                    </div>
+
+                </div>
+            </sw-card>
+
+            {# External API Endpoints #}
+            <sw-card position-identifier="canary-ext-endpoints" style="overflow:hidden;">
+                <div class="co-card-bleed">
+
+                    {# Stone header #}
+                    <div class="co-card-header co-card-header--stone">
+                        <div>
+                            <div class="co-card-header__title">External API Endpoints</div>
+                            <div class="co-card-header__subtitle">Bearer-token secured routes</div>
+                        </div>
+                        <div v-if="!loading.info && externalEndpoints.length > 0" class="co-pill co-pill--stone">
+                            <span class="co-pill__dot"></span>
+                            <span v-text="externalEndpoints.length"></span> endpoints
+                        </div>
+                    </div>
+
+                    {# Loading #}
+                    <div v-if="loading.info" class="co-loader co-loader--sm">
+                        <sw-loader></sw-loader>
+                    </div>
+
+                    {# Endpoint table #}
+                    <div v-else-if="externalEndpoints.length > 0" class="co-card-body--sm">
+                        <div class="co-endpoint-table__hint">
+                            Click a path to copy the full URL to your clipboard.
+                        </div>
+                        <div class="co-endpoint-table">
+
+                            {# Table header #}
+                            <div class="co-endpoint-table__header">
+                                <div class="co-endpoint-table__col-label">Method</div>
+                                <div class="co-endpoint-table__col-label">Scope</div>
+                                <div class="co-endpoint-table__col-label">Description</div>
+                                <div class="co-endpoint-table__col-label">Path</div>
+                            </div>
+
+                            {# Rows #}
+                            <div v-for="(ep, idx) in externalEndpoints" :key="idx"
+                                 :style="{ borderBottom: idx < externalEndpoints.length - 1 ? '1px solid #f1f5f9' : 'none' }"
+                                 class="co-endpoint-table__row">
+
+                                <div>
+                                    <code :style="{
+                                              display: 'inline-block',
+                                              width: '48px',
+                                              textAlign: 'center',
+                                              fontSize: '10px',
+                                              fontFamily: 'monospace',
+                                              fontWeight: '700',
+                                              borderRadius: '4px',
+                                              padding: '2px 0',
+                                              color: ep.method === 'GET' ? '#15803d' : ep.method === 'POST' ? '#1d4ed8' : ep.method === 'PUT' ? '#92400e' : '#991b1b',
+                                              background: ep.method === 'GET' ? '#dcfce7' : ep.method === 'POST' ? '#dbeafe' : ep.method === 'PUT' ? '#fef3c7' : '#fee2e2'
+                                          }"
+                                          v-text="ep.method">
+                                    </code>
+                                </div>
+
+                                <div>
+                                    <span class="co-endpoint-table__scope-badge" v-text="ep.scope"></span>
+                                </div>
+
+                                <div class="co-endpoint-table__desc" v-text="ep.label"></div>
+
+                                <div>
+                                    <code @click="copyUrl(ep.url)"
+                                          class="co-endpoint-table__path"
+                                          :title="ep.url"
+                                          v-text="ep.path">
+                                    </code>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Empty / not loaded #}
+                    <div v-else class="co-empty-state--xl">
+                        No endpoint information available
+                    </div>
+
+                </div>
+            </sw-card>
+
+        </div>
+        </div>
+        {% endblock %}
+
+
+    </template>
+    {% endblock %}
+
+</sw-page>
+{% endblock %}

@@ -1,0 +1,28 @@
+# Dependencies
+vendor/
+
+# PHPUnit
+.phpunit.result.cache
+.phpunit.cache/
+.coverage/
+
+# PHP CS Fixer
+.php-cs-fixer.cache
+
+# Rate limiter file storage (when running outside Docker)
+/var/canary/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Docker build artefacts
+docker-compose.override.yml

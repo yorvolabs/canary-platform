@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         stopOnError="false"
+         stopOnFailure="false">
+
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Functional">
+            <directory>tests/Functional</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+
+    <php>
+        <!-- Override in .env.test or via CI env vars. All tokens must be at least 64 chars. -->
+        <env name="APP_ENV" value="test"/>
+        <env name="CANARY_TOKEN_MONITORING"   value="test-monitoring-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"/>
+        <env name="CANARY_TOKEN_CACHE"        value="test-cache-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"/>
+        <env name="CANARY_TOKEN_DEPLOY"       value="test-deploy-token-ddddddddddddddddddddddddddddddddddddddddddddddd"/>
+        <env name="CANARY_TOKEN_ADMIN"        value="test-admin-token-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"/>
+        <env name="CANARY_TOKEN_DIAGNOSTICS"  value="test-diagnostics-token-ffffffffffffffffffffffffffffffffffffffffff"/>
+        <env name="CANARY_ALLOWED_CIDRS" value=""/>
+        <env name="CANARY_RATE_LIMIT_HEALTH" value="600"/>
+        <env name="CANARY_RATE_LIMIT_MUTATION" value="600"/>
+    </php>
+
+</phpunit>

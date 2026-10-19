@@ -1,0 +1,58 @@
+{
+    "name": "yorvolabs/canary",
+    "version": "1.0.0",
+    "description": "Secure, auditable HTTP endpoints for health monitoring, cache management, and deployment automation in Symfony-based applications.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "health",
+        "monitoring",
+        "deployment",
+        "cache",
+        "diagnostics",
+        "symfony",
+        "operations",
+        "devops"
+    ],
+    "authors": [
+        {
+            "name": "Darko Poposki",
+            "email": "poposki.darko@gmail.com",
+            "homepage": "https://github.com/yorvolabs"
+        }
+    ],
+    "homepage": "https://github.com/yorvolabs/canary",
+    "support": {
+        "issues": "https://github.com/yorvolabs/canary/issues",
+        "docs": "https://github.com/yorvolabs/canary/tree/main/docs"
+    },
+    "require": {
+        "php": "^8.2",
+        "symfony/event-dispatcher": "^7.4",
+        "symfony/http-foundation": "^7.4",
+        "symfony/http-kernel": "^7.4"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "YorvoLabs\\Canary\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "YorvoLabs\\Canary\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform-check": false,
+        "platform": {
+            "php": "8.2"
+        }
+    }
+}

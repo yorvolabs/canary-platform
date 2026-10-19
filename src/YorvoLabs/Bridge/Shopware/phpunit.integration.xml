@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Integration test configuration for running bridge tests inside a live Shopware instance.
+  Used by: make test-integration             (all integration tests)
+           make test-integration-ratelimit   (-group rate-limit, CANARY_RATE_LIMIT_HEALTH=1, CANARY_ALLOWED_CIDRS="")
+           make test-integration-prod        (-group prod, APP_ENV=prod, CANARY_ALLOWED_CIDRS="")
+
+  Key differences from phpunit.xml:
+  - bootstrap points to Shopware's autoloader so KernelTestBehaviour can boot the kernel
+  - testsuites point to the symlinked bridge package inside Shopware's vendor directory
+  - Run via the bridge package's own phpunit binary (not Shopware's vendor)
+  - CWD must be /var/www/html — enforced by the Makefile targets
+
+  APP_ENV is NOT overrideable here: Shopware reads it from $_SERVER (set at PHP
+  process startup), which phpunit's <env> cannot change. The Makefile must pass
+  APP_ENV=test explicitly when invoking phpunit, and APP_ENV=<env> for cache:clear.
+
+  CANARY_ROUTE_PREFIX is NOT declared here. The Makefile passes it explicitly as a
+  shell env var (CANARY_ROUTE_PREFIX=canary) to both cache:clear and phpunit, because
+  docker-compose env_file: promotes .env values to Docker process env vars which
+  Symfony's bootEnv() cannot override (overrideExistingVars=false by default).
+
+  Other env vars that differ per scenario (rate-limit, CIDRS) are declared without
+  force="true" so inline shell assignments in the Makefile take precedence.
+  CANARY_FEATURES keeps force="true" because every scenario agrees on it.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="/app/src/YorvoLabs/Bridge/Shopware/tests/Integration/bootstrap.php"
+         colors="true"
+         stopOnError="false"
+         stopOnFailure="false">
+
+    <testsuites>
+        <testsuite name="Integration">
+            <directory>/var/www/html/vendor/yorvolabs/canary-bridge-shopware/tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <php>
+        <env name="APP_ENV"         value="test" force="true"/>
+        <env name="CANARY_FEATURES" value=""     force="true"/>
+        <env name="CANARY_TOKEN_MONITORING"   value="test-monitoring-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"/>
+        <env name="CANARY_TOKEN_CACHE"        value="test-cache-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"/>
+        <env name="CANARY_TOKEN_DEPLOY"       value="test-deploy-token-ddddddddddddddddddddddddddddddddddddddddddddddd"/>
+        <env name="CANARY_TOKEN_ADMIN"        value="test-admin-token-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"/>
+        <env name="CANARY_TOKEN_DIAGNOSTICS"  value="test-diagnostics-token-ffffffffffffffffffffffffffffffffffffffffff"/>
+        <env name="CANARY_ALLOWED_CIDRS"    value="127.0.0.0/8"/>
+        <env name="CANARY_RATE_LIMIT_HEALTH"    value="600"/>
+        <env name="CANARY_RATE_LIMIT_MUTATION"  value="600"/>
+    </php>
+
+</phpunit>

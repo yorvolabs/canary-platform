@@ -1,0 +1,46 @@
+{
+    "yorvoLabsCanary": {
+        "general": {
+            "name": "YorvoLabs Canary",
+            "description": "Deployment-Gesundheit und Diagnose"
+        },
+        "overview": {
+            "title": "Canary",
+            "refresh": "Aktualisieren"
+        },
+        "queue": {
+            "title":   "Nachrichtenwarteschlange",
+            "name":    "Warteschlange",
+            "pending": "Ausstehend",
+            "oldest":  "Älteste Nachricht",
+            "failed":  "Fehlgeschlagen",
+            "workers": "Worker"
+        },
+        "plugins": {
+            "title": "Plugins",
+            "empty": "Keine Plugins gefunden",
+            "columns": {
+                "name":    "Plugin",
+                "version": "Version",
+                "status":  "Status",
+                "update":  "Update verfügbar"
+            },
+            "status": {
+                "active":   "Aktiv",
+                "inactive": "Inaktiv"
+            }
+        },
+        "logs": {
+            "title":             "Anwendungsprotokolle",
+            "entries":           "Einträge",
+            "empty":             "Keine Protokolleinträge",
+            "filterPlaceholder": "Nach Level oder Nachricht filtern..."
+        },
+        "audit": {
+            "title":        "Audit-Protokoll",
+            "entries":      "Einträge",
+            "notFound":     "Noch kein Audit-Protokoll vorhanden",
+            "notFoundHint": "Canary hat noch keine Zugriffsereignisse aufgezeichnet. Das Audit-Logging beginnt mit dem ersten externen API-Aufruf."
+        }
+    }
+}

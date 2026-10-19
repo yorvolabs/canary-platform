@@ -1,0 +1,151 @@
+# canary-platform/compose.yml
+#
+# Services
+# ─────────
+#   php            PHP 8.4 CLI — runs unit + functional tests for both packages.
+#                  No Shopware needed. Most development work happens here.
+#
+#   mysql          MySQL 8 — needed by DatabaseCheck integration tests and Shopware.
+#   redis          Redis 7 — needed by CacheAdapterCheck integration tests.
+#   elasticsearch  Elasticsearch 8 — needed by ElasticsearchCheck tests.
+#                  Add with: --profile es
+#
+#   shopware       Full Shopware installation — needed for bridge integration tests.
+#                  Add with: --profile shopware  (implies es profile automatically)
+#
+# Profiles
+# ─────────
+#   (none)        php + mysql + redis   → unit + functional tests
+#   es            adds elasticsearch    → ElasticsearchCheck tests
+#   shopware      adds shopware + es    → bridge integration tests
+#
+# Quick start
+# ───────────
+#   cp .env.example .env
+#   docker compose up -d && make install
+#   make test
+
+services:
+
+  # ── PHP dev container ───────────────────────────────────────────────────────
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.4}
+        XDEBUG: ${XDEBUG:-false}
+    volumes:
+      - ./src:/app/src
+      - composer-cache:/root/.composer/cache
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      COMPOSER_ROOT_VERSION: "1.0.0-dev"
+      # Passed through to phpunit for integration tests that hit real services.
+      DATABASE_URL: "mysql://canary:canary@mysql:3306/canary_test"
+      REDIS_URL: "redis://redis:6379"
+      SHOPWARE_ES_HOSTS: "elasticsearch:9200"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+
+  # ── MySQL 8 ─────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-canary_test}
+      MYSQL_USER: ${MYSQL_USER:-canary}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-canary}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "${MYSQL_USER:-canary}", "-p${MYSQL_PASSWORD:-canary}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+  # ── Redis 7 ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  # ── Elasticsearch 8 (profile: es | shopware) ────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    profiles: [es, shopware]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -qv '\"status\":\"red\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  # ── Shopware (profile: shopware) ────────────────────────────────────────────
+  # First start triggers a full Shopware installation (~5 min).
+  # Subsequent starts reuse the shopware-data volume.
+  #
+  # Version matrix: rebuild with different SHOPWARE_VERSION values.
+  #   SHOPWARE_VERSION=~6.5.0 docker compose --profile shopware build shopware
+  #   SHOPWARE_VERSION=~6.6.0 docker compose --profile shopware build shopware
+  #   SHOPWARE_VERSION=~6.7.0 docker compose --profile shopware build shopware
+  shopware:
+    build:
+      context: .
+      dockerfile: docker/shopware/Dockerfile
+      args:
+        PHP_VERSION: ${PHP_VERSION:-8.4}
+        SHOPWARE_VERSION: ${SHOPWARE_VERSION:-~6.6.0}
+    profiles: [shopware]
+    volumes:
+      - ./src:/app/src
+      - shopware-data:/var/www/html
+      - composer-cache:/root/.composer/cache
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://root:${MYSQL_ROOT_PASSWORD:-root}@mysql:3306/shopware"
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      APP_SECRET: ${SHOPWARE_APP_SECRET:-default-app-secret-change-in-production}
+      SHOPWARE_ES_HOSTS: "elasticsearch:9200"
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      COMPOSER_ROOT_VERSION: "1.0.0-dev"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "${SHOPWARE_PORT:-8080}:80"
+    tty: true
+    stdin_open: true
+
+volumes:
+  composer-cache:
+  mysql-data:
+  es-data:
+  shopware-data:

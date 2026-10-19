@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services
+               https://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+
+        <!--
+            MonologAuditLogger is wired here (not in services.xml) so that the
+            monolog.logger tag can co-locate with the service definition.
+
+            The monolog.logger tag instructs Symfony's MonologBundle to replace
+            the injected $logger argument with a channel-specific logger instance
+            (monolog.logger.canary_audit). The channel is created on-demand by
+            MonologBundle — no separate channel registration is required.
+
+            To configure log rotation / handlers for this channel, add to your
+            Shopware config/packages/monolog.yaml:
+
+                monolog:
+                    handlers:
+                        canary_audit:
+                            type: rotating_file
+                            path: "%kernel.logs_dir%/canary_audit.log"
+                            level: info
+                            max_files: 30
+                            channels: [canary_audit]
+        -->
+        <service id="YorvoLabs\Canary\Bridge\Shopware\Audit\MonologAuditLogger">
+            <argument type="service" id="logger"/>
+            <tag name="monolog.logger" channel="canary_audit"/>
+        </service>
+
+        <service id="YorvoLabs\Canary\Contract\AuditLoggerInterface"
+                 alias="YorvoLabs\Canary\Bridge\Shopware\Audit\MonologAuditLogger"/>
+
+    </services>
+
+</container>
