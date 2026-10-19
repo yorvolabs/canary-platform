@@ -1,6 +1,6 @@
 {
     "name": "yorvolabs/canary-bridge-shopware",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Shopware 6.6+ plugin bridge for yorvolabs/canary — secure health, cache, and deployment endpoints.",
     "type": "shopware-platform-plugin",
     "license": "MIT",
@@ -30,7 +30,7 @@
         {
             "type": "path",
             "url": "../../Canary",
-            "options": {"symlink": true, "versions": {"yorvolabs/canary": "1.0.0"}}
+            "options": {"symlink": true, "versions": {"yorvolabs/canary": "1.1.0"}}
         }
     ],
     "require": {

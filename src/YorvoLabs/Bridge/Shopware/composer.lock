@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "364fb5658692d9dcbd2599209bdf1e19",
+    "content-hash": "30a02cd64ef06393c2a5492ea836bc90",
     "packages": [
         {
             "name": "brick/math",
@@ -12154,11 +12154,11 @@
         },
         {
             "name": "yorvolabs/canary",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "dist": {
                 "type": "path",
                 "url": "../../Canary",
-                "reference": "dbfa7e25d131d2bca5dcbe25212da5d2d5110023"
+                "reference": "955cb158e3d4a6fea15489b5139895fb40d87e99"
             },
             "require": {
                 "php": "^8.2",

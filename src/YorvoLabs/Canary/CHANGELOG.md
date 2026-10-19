@@ -4,6 +4,15 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-10-19
+
+No functional changes; released alongside `yorvolabs/canary-bridge-shopware` 1.1.0.
+
+### Changed
+
+- Documentation, issue and support links now point to the `yorvolabs/canary-platform` monorepo
+- Development dependencies updated (`composer audit` clean)
+
 ## [1.0.0] — 2026-05-08
 
 ### Added
