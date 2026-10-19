@@ -1,6 +1,6 @@
 # yorvolabs/canary-bridge-shopware
 
-[![CI](https://github.com/yorvolabs/canary-bridge-shopware/actions/workflows/ci.yml/badge.svg)](https://github.com/yorvolabs/canary-bridge-shopware/actions/workflows/ci.yml)
+[![CI](https://github.com/yorvolabs/canary-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/yorvolabs/canary-platform/actions/workflows/ci.yml)
 [![Packagist](https://img.shields.io/packagist/v/yorvolabs/canary-bridge-shopware)](https://packagist.org/packages/yorvolabs/canary-bridge-shopware)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
