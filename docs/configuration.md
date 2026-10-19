@@ -1,6 +1,6 @@
 # Configuration
 
-Configuration can be provided via environment variables or, in the Shopware bridge, via the admin UI at **Settings → YorvoLabs Canary**. Admin UI values take precedence over environment variables.
+Configuration can be provided via environment variables or, in the Shopware bridge, via the admin UI at **Settings → YorvoLabs Canary**. Admin UI values take precedence over environment variables; leave an admin field empty to use the environment variable (or the built-in default if that is unset too).
 
 After changing any environment variable, run `bin/console cache:clear`.
 
@@ -12,7 +12,7 @@ After changing any environment variable, run `bin/console cache:clear`.
 |---|---|---|
 | `CANARY_TOKEN_MONITORING` | `tokenMonitoring` | Token for `/health/*` endpoints |
 | `CANARY_TOKEN_CACHE` | `tokenCache` | Token for `/cache/*` endpoints |
-| `CANARY_TOKEN_DIAGNOSTICS` | `tokenDiagnostics` | Token for `/diag/*` endpoints |
+| `CANARY_TOKEN_DIAGNOSTICS` | — (env only) | Token for `/diag/*` endpoints |
 | `CANARY_TOKEN_DEPLOY` | `tokenDeploy` | Token for `/deploy/*` endpoints |
 | `CANARY_TOKEN_ADMIN` | `tokenAdmin` | Supertoken — satisfies all scope checks |
 
@@ -65,8 +65,8 @@ These control when the `GET /deploy/pre` check fails.
 
 | Env var | Admin config key | Default | Description |
 |---|---|---|---|
-| `CANARY_DEPLOY_QUEUE_THRESHOLD` | `deployQueueThreshold` | `100` | Max queue depth allowed before deployment |
-| `CANARY_DEPLOY_FAILED_THRESHOLD` | `deployFailedThreshold` | `0` | Max failed messages allowed before deployment |
+| `CANARY_DEPLOY_QUEUE_THRESHOLD` | `queueThreshold` | `100` | Max queue depth allowed before deployment |
+| `CANARY_DEPLOY_FAILED_THRESHOLD` | `failedThreshold` | `0` | Max failed messages allowed before deployment |
 
 ---
 
@@ -74,7 +74,7 @@ These control when the `GET /deploy/pre` check fails.
 
 | Env var | Admin config key | Default | Description |
 |---|---|---|---|
-| `CANARY_ROUTE_PREFIX` | `routePrefix` | `canary` | URL prefix for all Canary endpoints |
+| `CANARY_ROUTE_PREFIX` | — (env only) | `canary` | URL prefix for all Canary endpoints |
 
 Examples:
 
@@ -82,9 +82,9 @@ Examples:
 |---|---|
 | `canary` (default) | `/canary/health/live` |
 | `ops` | `/ops/health/live` |
-| _(empty string)_ | `/health/live` |
+| _(empty string)_ | `/canary/health/live` (falls back to the default) |
 
-Changing the prefix requires `bin/console cache:clear` to regenerate the route table.
+Changing the prefix requires `bin/console cache:clear` to regenerate the route table. The Shopware bridge also bakes the prefix into the compiled container (so the storefront's sales-channel lookup skips Canary paths); until the cache is cleared, requests on the new prefix are answered by the storefront instead of Canary.
 
 ---
 

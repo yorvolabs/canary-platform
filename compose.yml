@@ -35,11 +35,13 @@ services:
       args:
         PHP_VERSION: ${PHP_VERSION:-8.4}
         XDEBUG: ${XDEBUG:-false}
+    # Run as the host user so vendor/, lock files and caches in src/ aren't root-owned.
+    # Override HOST_UID/HOST_GID in .env if your user isn't 1000:1000.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     volumes:
       - ./src:/app/src
-      - composer-cache:/root/.composer/cache
+      - php-composer-cache:/tmp/composer/cache
     environment:
-      COMPOSER_ALLOW_SUPERUSER: "1"
       COMPOSER_ROOT_VERSION: "1.0.0-dev"
       # Passed through to phpunit for integration tests that hit real services.
       DATABASE_URL: "mysql://canary:canary@mysql:3306/canary_test"
@@ -146,6 +148,7 @@ services:
 
 volumes:
   composer-cache:
+  php-composer-cache:
   mysql-data:
   es-data:
   shopware-data:

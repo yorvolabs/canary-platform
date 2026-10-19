@@ -90,6 +90,8 @@ build-shopware: ## Build Shopware image (honours SHOPWARE_VERSION env var)
 
 build-admin: ## Build the Shopware Administration JS bundle inside the Docker container
 	$(COMPOSE) --profile shopware exec shopware bin/build-administration.sh
+	@# The Shopware container runs as root; hand the built assets back to the host user.
+	$(COMPOSE) --profile shopware exec shopware chown -R $(shell id -u):$(shell id -g) /app/$(bridge-shopware-path)/src/Resources/public
 
 up: ## Start php + mysql + redis (core dev, no Shopware)
 	$(COMPOSE) up -d
@@ -160,7 +162,7 @@ test-bridge-shopware: ## Run unit + functional tests for bridge-shopware (no Sho
 test-integration: ## Run bridge-shopware integration tests against a running Shopware instance
 	@echo "$(YELLOW)Ensure Shopware is running: make up-shopware$(RESET)"
 	$(SW) sh -c "cd /var/www/html && \
-		APP_ENV=test CANARY_ROUTE_PREFIX=canary php bin/console cache:clear -q && \
+		rm -rf var/cache/test_* var/canary/rate-limit/* && \
 		APP_ENV=test CANARY_ROUTE_PREFIX=canary \
 		/app/src/YorvoLabs/Bridge/Shopware/vendor/bin/phpunit \
 		-c /app/src/YorvoLabs/Bridge/Shopware/phpunit.integration.xml"
@@ -168,7 +170,7 @@ test-integration: ## Run bridge-shopware integration tests against a running Sho
 test-integration-ratelimit: ## Run rate-limit exhaustion integration test (isolated, CANARY_RATE_LIMIT_HEALTH=1)
 	@echo "$(YELLOW)Ensure Shopware is running: make up-shopware$(RESET)"
 	$(SW) sh -c "cd /var/www/html && \
-		APP_ENV=test CANARY_ROUTE_PREFIX=canary php bin/console cache:clear -q && \
+		rm -rf var/cache/test_* var/canary/rate-limit/* && \
 		APP_ENV=test CANARY_ROUTE_PREFIX=canary CANARY_RATE_LIMIT_HEALTH=1 CANARY_ALLOWED_CIDRS='' \
 		/app/src/YorvoLabs/Bridge/Shopware/vendor/bin/phpunit \
 		-c /app/src/YorvoLabs/Bridge/Shopware/phpunit.integration.xml \
@@ -177,8 +179,8 @@ test-integration-ratelimit: ## Run rate-limit exhaustion integration test (isola
 test-integration-prod: ## Run production-mode integration test (isolated, APP_ENV=prod)
 	@echo "$(YELLOW)Ensure Shopware is running: make up-shopware$(RESET)"
 	$(SW) sh -c "cd /var/www/html && \
-		APP_ENV=prod php bin/console cache:clear -q && \
-		APP_ENV=prod CANARY_ALLOWED_CIDRS='' \
+		rm -rf var/cache/prod_* var/canary/rate-limit/* && \
+		APP_ENV=prod CANARY_ROUTE_PREFIX=canary CANARY_ALLOWED_CIDRS='' \
 		/app/src/YorvoLabs/Bridge/Shopware/vendor/bin/phpunit \
 		-c /app/src/YorvoLabs/Bridge/Shopware/phpunit.integration.xml \
 		--group prod"

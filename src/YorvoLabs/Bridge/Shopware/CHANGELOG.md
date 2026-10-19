@@ -4,6 +4,12 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `CANARY_RATE_LIMIT_HEALTH`, `CANARY_RATE_LIMIT_MUTATION`, `CANARY_DEPLOY_QUEUE_THRESHOLD` and `CANARY_DEPLOY_FAILED_THRESHOLD` were ignored: plugin install saved the `config.xml` default values to the system config, which takes precedence over environment variables. The admin fields now start empty, so the environment variable (or the built-in default) applies until a value is set in the admin.
+
 ## [1.0.0] — 2026-05-08
 
 ### Added

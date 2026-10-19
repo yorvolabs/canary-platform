@@ -37,8 +37,14 @@ RUN echo "memory_limit=512M"   >> /usr/local/etc/php/conf.d/memory.ini \
  && echo "display_errors=On"   >> /usr/local/etc/php/conf.d/errors.ini
 
 # Fix git dubious-ownership warnings when the host volume is a different user
-RUN git config --global --add safe.directory /app/src/YorvoLabs/Canary \
- && git config --global --add safe.directory /app/src/YorvoLabs/Bridge/Shopware
+# (--system so it applies to whichever user the container runs as)
+RUN git config --system --add safe.directory /app/src/YorvoLabs/Canary \
+ && git config --system --add safe.directory /app/src/YorvoLabs/Bridge/Shopware
+
+# The container runs as the host user (see compose.yml) so files written to the
+# mounted src/ stay owned by that user; give composer a home it can write to.
+ENV COMPOSER_HOME=/tmp/composer
+RUN mkdir -p /tmp/composer/cache && chmod -R 0777 /tmp/composer
 
 ENV COMPOSER_ROOT_VERSION=1.0.0-dev
 

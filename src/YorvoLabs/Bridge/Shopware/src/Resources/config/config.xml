@@ -72,7 +72,6 @@
             <label>Queue Depth Threshold</label>
             <label lang="de-DE">Warteschlangentiefe-Schwellenwert</label>
             <helpText>Pre-deploy check fails when pending messages exceed this value (CANARY_DEPLOY_QUEUE_THRESHOLD, default 100).</helpText>
-            <defaultValue>100</defaultValue>
         </input-field>
 
         <input-field type="int">
@@ -80,7 +79,6 @@
             <label>Failed Messages Threshold</label>
             <label lang="de-DE">Fehlgeschlagene-Nachrichten-Schwellenwert</label>
             <helpText>Pre-deploy check fails when dead-letter count exceeds this value (CANARY_DEPLOY_FAILED_THRESHOLD, default 0).</helpText>
-            <defaultValue>0</defaultValue>
         </input-field>
     </card>
 
@@ -94,7 +92,6 @@
             <label>Health Endpoint Rate Limit (requests/min)</label>
             <label lang="de-DE">Health-Endpunkt Ratenlimit (Anfragen/Min)</label>
             <helpText>Maximum requests per minute for /health/* endpoints (CANARY_RATE_LIMIT_HEALTH, default 60).</helpText>
-            <defaultValue>60</defaultValue>
         </input-field>
 
         <input-field type="int">
@@ -102,7 +99,6 @@
             <label>Mutation Endpoint Rate Limit (requests/min)</label>
             <label lang="de-DE">Mutations-Endpunkt Ratenlimit (Anfragen/Min)</label>
             <helpText>Maximum requests per minute for cache-clearing and deploy endpoints (CANARY_RATE_LIMIT_MUTATION, default 10).</helpText>
-            <defaultValue>10</defaultValue>
         </input-field>
     </card>
 

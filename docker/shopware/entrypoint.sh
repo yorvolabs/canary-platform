@@ -88,18 +88,9 @@ shopware:
             use_app_secret: true
 YAML
 
-    # Register the canary_audit Monolog channel handler so MonologAuditLogger
-    # writes to var/log/canary_audit.log instead of falling through to dev.log.
-    cat > "${SW_DIR}/config/packages/monolog.yaml" <<MONOLOG
-monolog:
-    handlers:
-        canary_audit:
-            type: rotating_file
-            path: "%kernel.logs_dir%/canary_audit.log"
-            level: info
-            max_files: 30
-            channels: [canary_audit]
-MONOLOG
+    # No monolog.yaml for canary_audit here: the plugin registers that handler itself
+    # (YorvoLabsCanary::build()). Declaring it before the plugin is active makes
+    # system:install fail with 'logging channel "canary_audit" ... does not exist'.
 
     log "Running Shopware database installer..."
     bin/console system:install \

@@ -38,7 +38,7 @@
     </testsuites>
 
     <php>
-        <env name="APP_ENV"         value="test" force="true"/>
+        <env name="APP_ENV"         value="test"/>
         <env name="CANARY_FEATURES" value=""     force="true"/>
         <env name="CANARY_TOKEN_MONITORING"   value="test-monitoring-token-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"/>
         <env name="CANARY_TOKEN_CACHE"        value="test-cache-token-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"/>
