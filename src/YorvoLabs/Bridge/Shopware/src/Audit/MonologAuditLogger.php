@@ -11,8 +11,13 @@ use YorvoLabs\Canary\Contract\AuditLoggerInterface;
 /**
  * Writes audit records to the canary_audit Monolog channel.
  *
- * Every Canary request — authenticated or not — produces one record.
- * The channel is configured with 30-day log rotation in monolog.xml.
+ * Every main Canary request that reaches the HTTPS check or later produces one
+ * record (see RequestGuardSubscriber for what is not audited).
+ *
+ * By default the plugin writes the channel to var/log/canary_audit.log with a
+ * plain stream handler: no rotation, no retention limit. Rotation (for example
+ * 30 daily files) is configuration you add in monolog.yaml; monolog.xml has an
+ * example.
  *
  * The logger is injected via the monolog.logger tag in monolog.xml, which
  * causes Symfony to replace the generic $logger argument with the

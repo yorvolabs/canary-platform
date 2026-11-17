@@ -207,4 +207,30 @@ final class CanaryAdminControllerTest extends TestCase
 
         self::assertSame(404, $response->getStatusCode());
     }
+
+    #[Test]
+    public function audit_falls_back_to_the_newest_rotated_audit_log(): void
+    {
+        file_put_contents($this->logDir . '/canary_audit-2026-11-16.log', "old entry\n");
+        file_put_contents($this->logDir . '/canary_audit-2026-11-17.log', "new entry\n");
+
+        $response = $this->makeController()->audit(Request::create('/api/_action/canary/audit'));
+
+        self::assertSame(200, $response->getStatusCode());
+        $body = json_decode((string) $response->getContent(), true);
+        self::assertSame('canary_audit-2026-11-17.log', $body['data']['file']);
+        self::assertSame(['new entry'], $body['data']['entries']);
+    }
+
+    #[Test]
+    public function audit_prefers_the_plain_audit_log_over_rotated_files(): void
+    {
+        file_put_contents($this->logDir . '/canary_audit.log', "plain entry\n");
+        file_put_contents($this->logDir . '/canary_audit-2026-11-17.log', "rotated entry\n");
+
+        $response = $this->makeController()->audit(Request::create('/api/_action/canary/audit'));
+
+        $body = json_decode((string) $response->getContent(), true);
+        self::assertSame('canary_audit.log', $body['data']['file']);
+    }
 }

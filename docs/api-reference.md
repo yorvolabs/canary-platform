@@ -36,10 +36,10 @@ All endpoints share a configurable URL prefix (default: `canary`, set via `CANAR
 | HTTP | Code | Meaning |
 |---|---|---|
 | 400 | `BAD_REQUEST` | Invalid input (e.g. missing `confirm=true`) |
-| 401 | `UNAUTHORIZED` | Token missing or malformed |
-| 403 | `FORBIDDEN` | Token wrong, scope mismatch, IP not in allowlist, or HTTP in production |
+| 401 | `UNAUTHORIZED` | Token missing, malformed or wrong (matches no configured token) |
+| 403 | `FORBIDDEN` | Token valid but its scope does not cover the endpoint, IP not in allowlist, or HTTP in production |
 | 404 | `NOT_FOUND` | Endpoint group disabled via `CANARY_FEATURES` |
-| 429 | `RATE_LIMITED` | Rate limit exceeded; `Retry-After: N` header present |
+| 429 | `RATE_LIMITED` | Rate limit exceeded; `Retry-After: N` header present. Failed authentication attempts count toward the limit |
 | 503 | `SERVICE_UNAVAILABLE` | Token for scope not configured |
 
 ---

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace YorvoLabs\Canary\Auth;
 
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use YorvoLabs\Canary\Audit\AuditRecord;
 use YorvoLabs\Canary\Configuration\Feature;
@@ -23,17 +25,28 @@ use YorvoLabs\Canary\Response\ResponseFactory;
  * unauthorized requests are rejected before any controller is instantiated.
  *
  * Layer execution order (first failure terminates):
- *   0. Feature flag check — disabled groups return 404, no audit entry
- *   1. HTTPS enforcement (production only)
- *   2. IP allowlist check
- *   3. Token authentication + scope validation
- *   4. Rate limiting
+ *   0. Feature flag — disabled groups return 404, no audit entry
+ *   1. HTTPS enforcement (production only) — 403
+ *   2. IP allowlist — 403
+ *   3. Rate limiting — 429 (counted per group and IP, before authentication,
+ *      so failed token attempts consume the limit)
+ *   4. Token authentication + scope — 401 missing, 503 not configured,
+ *      401 wrong token, 403 insufficient scope
+ *
+ * The allowlist runs before the rate limiter so that requests from blocked
+ * IPs are rejected without touching rate-limiter state: they cannot create
+ * buckets or cause rate-limiter writes.
  *
  * Path → (feature, scope, rate-limit group) resolution is centralised in
  * resolvePath() — a single place to update when new endpoint groups are added.
  *
- * Every request that reaches layer 1 or beyond is written to the audit log.
- * Disabled-feature 404s are intentionally not audited to avoid noise.
+ * Audit: every main request that reaches layer 1 or beyond produces exactly one
+ * audit record. Rejections are recorded with the guard's status code when they
+ * happen. Requests that pass every layer are recorded on kernel.response with
+ * the status code of the response actually sent (controller result, or the
+ * error response if the controller threw). Not audited: disabled-feature 404s
+ * (layer 0), sub-requests, and passed requests for which the kernel never
+ * dispatches kernel.response (e.g. a fatal PHP error).
  *
  * A single request ID is generated at the start of every ops request and
  * threaded through all error responses. On success it is stored as the
@@ -41,6 +54,14 @@ use YorvoLabs\Canary\Response\ResponseFactory;
  */
 final class RequestGuardSubscriber implements EventSubscriberInterface
 {
+    /**
+     * Requests that passed every layer and still need their audit record,
+     * written once the real response status is known.
+     *
+     * @var \WeakMap<Request, array{ip: string, scope: TokenScope, startedAt: float}>
+     */
+    private \WeakMap $pendingAudits;
+
     public function __construct(
         private readonly Options $config,
         private readonly TokenAuthenticator $authenticator,
@@ -48,12 +69,17 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
         private readonly RateLimiterInterface $rateLimiter,
         private readonly ResponseFactory $responseFactory,
         private readonly AuditLoggerInterface $auditLogger,
-    ) {}
+    ) {
+        $this->pendingAudits = new \WeakMap();
+    }
 
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::REQUEST => ['onKernelRequest', 256],
+            KernelEvents::REQUEST  => ['onKernelRequest', 256],
+            // Lowest priority: record the status after every other listener has
+            // had the chance to change the response.
+            KernelEvents::RESPONSE => ['onKernelResponse', -1024],
         ];
     }
 
@@ -104,7 +130,20 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
             return;
         }
 
-        // Layer 3: Token authentication + scope.
+        // Layer 3: Rate limiting — before authentication, so every attempt that
+        // reaches the token check counts, including failed ones. The scope is not
+        // known yet, so the audit record carries scope: null.
+        $rateLimit = $this->config->getRateLimit($resolved['rateGroup']);
+        $rateLimitKey = "{$resolved['rateGroup']->value}:{$ip}";
+        $rateLimitResult = $this->rateLimiter->check($rateLimitKey, $rateLimit);
+
+        if (!$rateLimitResult->allowed) {
+            $this->audit($ip, null, $path, $request->getMethod(), 429, $startedAt, AuthFailureReason::RATE_LIMITED);
+            $event->setResponse($this->responseFactory->tooManyRequests($rateLimitResult->retryAfterSeconds, $requestId));
+            return;
+        }
+
+        // Layer 4: Token authentication + scope.
         try {
             $authResult = $this->authenticator->authenticate($request, $resolved['scope']);
         } catch (TokenNotConfiguredException) {
@@ -113,7 +152,7 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
             return;
         }
 
-        if ($authResult->failed()) {
+        if ($authResult->failed() || $authResult->scope === null) {
             $httpStatus = $authResult->httpStatus();
             $this->audit($ip, null, $path, $request->getMethod(), $httpStatus, $startedAt, $authResult->reason);
             $event->setResponse(
@@ -124,22 +163,42 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
             return;
         }
 
-        // Layer 4: Rate limiting.
-        $rateLimit = $this->config->getRateLimit($resolved['rateGroup']);
-        $rateLimitKey = "{$resolved['rateGroup']->value}:{$ip}";
-        $rateLimitResult = $this->rateLimiter->check($rateLimitKey, $rateLimit);
-
-        if (!$rateLimitResult->allowed) {
-            $this->audit($ip, $authResult->scope, $path, $request->getMethod(), 429, $startedAt, AuthFailureReason::RATE_LIMITED);
-            $event->setResponse($this->responseFactory->tooManyRequests($rateLimitResult->retryAfterSeconds, $requestId));
-            return;
-        }
-
         // All layers passed — store resolved scope and request ID for controllers.
         $request->attributes->set('_canary_scope', $authResult->scope);
         $request->attributes->set('_canary_request_id', $requestId);
 
-        $this->audit($ip, $authResult->scope, $path, $request->getMethod(), 200, $startedAt, null);
+        // The audit record is written in onKernelResponse(), with the real status.
+        $this->pendingAudits[$request] = ['ip' => $ip, 'scope' => $authResult->scope, 'startedAt' => $startedAt];
+    }
+
+    /**
+     * Writes the audit record for a request that passed the guard, using the
+     * status code of the response that is actually sent.
+     */
+    public function onKernelResponse(ResponseEvent $event): void
+    {
+        if (!$event->isMainRequest()) {
+            return;
+        }
+
+        $request = $event->getRequest();
+        $pending = $this->pendingAudits[$request] ?? null;
+
+        if ($pending === null) {
+            return;
+        }
+
+        unset($this->pendingAudits[$request]);
+
+        $this->audit(
+            $pending['ip'],
+            $pending['scope'],
+            $request->getPathInfo(),
+            $request->getMethod(),
+            $event->getResponse()->getStatusCode(),
+            $pending['startedAt'],
+            null,
+        );
     }
 
     /**

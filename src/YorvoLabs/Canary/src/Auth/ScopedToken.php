@@ -16,10 +16,15 @@ final class ScopedToken
 {
     public const MIN_LENGTH = 64;
 
+    /** SHA-256 of the token, so comparisons always run over 32 bytes. */
+    private readonly string $digest;
+
     private function __construct(
         public readonly TokenScope $scope,
         private readonly string $token,
-    ) {}
+    ) {
+        $this->digest = hash('sha256', $token, true);
+    }
 
     /**
      * @throws RuntimeException if the token is too short
@@ -41,10 +46,14 @@ final class ScopedToken
 
     /**
      * Constant-time comparison — never use === for token comparison.
+     *
+     * Compares SHA-256 digests rather than the raw strings: hash_equals() returns
+     * immediately when the lengths differ, which would reveal the configured
+     * token's length. Digests are always 32 bytes.
      */
     public function matches(string $candidate): bool
     {
-        return hash_equals($this->token, $candidate);
+        return hash_equals($this->digest, hash('sha256', $candidate, true));
     }
 
     /**

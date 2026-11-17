@@ -10,8 +10,8 @@ use YorvoLabs\Canary\Auth\TokenScope;
 /**
  * Immutable record of a single Canary request.
  *
- * Captured for every request — authenticated or not — and written
- * to the audit log via AuditLoggerInterface.
+ * Captured for passed and rejected requests (see RequestGuardSubscriber for
+ * what is not audited) and written to the audit log via AuditLoggerInterface.
  */
 final class AuditRecord
 {

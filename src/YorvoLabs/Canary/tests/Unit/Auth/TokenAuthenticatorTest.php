@@ -116,4 +116,65 @@ final class TokenAuthenticatorTest extends TestCase
         self::assertTrue($result->failed());
         self::assertSame(AuthFailureReason::TOKEN_MISSING, $result->reason);
     }
+
+    #[Test]
+    public function the_result_does_not_depend_on_the_position_of_the_matching_token(): void
+    {
+        $monitoring = ScopedToken::fromEnv(TokenScope::MONITORING, self::MONITORING_TOKEN);
+        $cache      = ScopedToken::fromEnv(TokenScope::CACHE, self::CACHE_TOKEN);
+        $admin      = ScopedToken::fromEnv(TokenScope::ADMIN, self::ADMIN_TOKEN);
+
+        $orders = [
+            [TokenScope::MONITORING->value => $monitoring, TokenScope::CACHE->value => $cache, TokenScope::ADMIN->value => $admin],
+            [TokenScope::ADMIN->value => $admin, TokenScope::CACHE->value => $cache, TokenScope::MONITORING->value => $monitoring],
+            [TokenScope::CACHE->value => $cache, TokenScope::ADMIN->value => $admin, TokenScope::MONITORING->value => $monitoring],
+        ];
+
+        foreach ($orders as $tokens) {
+            $auth = new TokenAuthenticator($tokens);
+
+            $pass = $auth->authenticate($this->requestWith(self::MONITORING_TOKEN), TokenScope::MONITORING);
+            self::assertTrue($pass->passed);
+            self::assertSame(TokenScope::MONITORING, $pass->scope);
+
+            $admin = $auth->authenticate($this->requestWith(self::ADMIN_TOKEN), TokenScope::CACHE);
+            self::assertTrue($admin->passed);
+            self::assertSame(TokenScope::ADMIN, $admin->scope);
+
+            $scope = $auth->authenticate($this->requestWith(self::CACHE_TOKEN), TokenScope::MONITORING);
+            self::assertSame(AuthFailureReason::SCOPE_INSUFFICIENT, $scope->reason);
+
+            $invalid = $auth->authenticate($this->requestWith(str_repeat('z', 64)), TokenScope::MONITORING);
+            self::assertSame(AuthFailureReason::TOKEN_INVALID, $invalid->reason);
+        }
+    }
+
+    #[Test]
+    public function a_value_shared_by_two_scopes_passes_when_a_later_token_satisfies_the_scope(): void
+    {
+        // Same value configured for CACHE (does not satisfy MONITORING) and,
+        // later in the map, MONITORING (does).
+        $shared = str_repeat('s', 64);
+        $auth   = new TokenAuthenticator([
+            TokenScope::CACHE->value      => ScopedToken::fromEnv(TokenScope::CACHE, $shared),
+            TokenScope::MONITORING->value => ScopedToken::fromEnv(TokenScope::MONITORING, $shared),
+        ]);
+
+        $result = $auth->authenticate($this->requestWith($shared), TokenScope::MONITORING);
+
+        self::assertTrue($result->passed);
+        self::assertSame(TokenScope::MONITORING, $result->scope);
+    }
+
+    #[Test]
+    public function scoped_token_rejects_prefixes_extensions_and_other_lengths(): void
+    {
+        $token = ScopedToken::fromEnv(TokenScope::MONITORING, self::MONITORING_TOKEN);
+
+        self::assertTrue($token->matches(self::MONITORING_TOKEN));
+        self::assertFalse($token->matches(substr(self::MONITORING_TOKEN, 0, -1)));
+        self::assertFalse($token->matches(self::MONITORING_TOKEN . 'a'));
+        self::assertFalse($token->matches(''));
+        self::assertFalse($token->matches(strtoupper(self::MONITORING_TOKEN)));
+    }
 }

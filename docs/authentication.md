@@ -42,18 +42,39 @@ php -r "echo bin2hex(random_bytes(32)) . PHP_EOL;"
 
 ## Authentication flow
 
-Every request passes through `RequestGuardSubscriber` (a Symfony kernel event subscriber at priority 256), which enforces the following checks in order:
+Every request under the Canary route prefix passes through `RequestGuardSubscriber` (a Symfony `kernel.request` subscriber at priority 256). It runs the checks below in this order; the first check that fails decides the response.
 
-1. **HTTPS enforcement** — If `APP_ENV=prod` and the request is not secure, returns `403 Forbidden`.
-2. **Feature flag** — If the endpoint group is disabled via `CANARY_FEATURES`, returns `404 Not Found` (prevents existence leak).
-3. **Rate limiting** — If the IP has exceeded the rate limit for the endpoint group, returns `429 Too Many Requests` with a `Retry-After` header.
-4. **Token presence** — If the `Authorization` header is missing or malformed, returns `401 Unauthorized`.
-5. **Token configured** — If no token is configured for the required scope, returns `503 Service Unavailable`.
-6. **Token match** — Constant-time comparison against the configured token. Returns `403 Forbidden` on mismatch.
-7. **Scope check** — Verifies the token's scope satisfies the required scope. Returns `403 Forbidden` on failure.
-8. **IP allowlist** — If `CANARY_ALLOWED_CIDRS` is set, verifies the client IP is in the list. Returns `403 Forbidden` otherwise.
+| # | Check | Fails when | Response |
+|---|---|---|---|
+| 1 | **Feature flag** | The endpoint group is disabled via `CANARY_FEATURES` | `404 Not Found` (not audited, so a disabled group looks like a missing route) |
+| 2 | **HTTPS** | `APP_ENV=prod` and the request is not secure | `403 Forbidden` |
+| 3 | **IP allowlist** | `CANARY_ALLOWED_CIDRS` is set and the client IP is not in it | `403 Forbidden` |
+| 4 | **Rate limit** | The client IP has used up the limit for the endpoint group | `429 Too Many Requests` with `Retry-After` |
+| 5 | **Token** | No `Authorization: Bearer` header, or an empty value | `401 Unauthorized` |
+|   |  | Neither the scope's token nor the `ADMIN` token is configured | `503 Service Unavailable` |
+|   |  | The token matches no configured token | `401 Unauthorized` |
+|   |  | The token matches a configured token whose scope does not cover the endpoint | `403 Forbidden` |
 
-Requests that pass all checks proceed to the controller. All attempts (pass and fail) are written to the audit log.
+Requests that pass all checks proceed to the controller.
+
+**Failed attempts count toward the rate limit.** The rate limit (check 4) runs before the token check, so every request that gets past the allowlist uses up one request from the limit for its endpoint group and IP, whether its token is right or wrong. Repeated wrong tokens from one IP end in `429`, and after that the same IP is limited for every token, including correct ones, until the window frees up.
+
+**Why the allowlist comes before the rate limit.** Requests from IPs outside the allowlist are rejected before the rate limiter runs, so they never create or update rate-limit state (with the default `FileBasedRateLimiter`, a file per bucket). Blocked IPs cannot reach the token check whatever their request rate.
+
+**The `ADMIN` exception.** Scopes are matched exactly, with one exception: the `ADMIN` token satisfies every scope (`TokenScope::satisfies()`). Check 5 compares the presented token against every configured token (constant-time, over SHA-256 digests, without stopping at the first match) and only then picks the result.
+
+### Audit coverage
+
+One audit record is written for every main request that reaches check 2 or later:
+
+- Rejected requests are recorded when the guard rejects them, with the guard's status code. A `429` record has `scope: null`, because the token has not been checked yet.
+- Requests that pass every check are recorded on `kernel.response`, with the status code of the response actually sent: the controller's status, or the error response's status if the controller threw.
+
+Not audited:
+
+- Disabled-feature `404`s (check 1).
+- Sub-requests. The guard only inspects main requests; a sub-request is neither checked nor recorded.
+- A passed request for which the kernel never dispatches `kernel.response`, for example after a fatal PHP error.
 
 ## IP allowlist
 
@@ -85,13 +106,13 @@ In non-production environments (`APP_ENV=dev`, `APP_ENV=test`, etc.) HTTP is all
 
 ## Audit logging
 
-Every request — authenticated or not — is written to the Canary audit log channel (`var/log/canary_audit-*.log`). Each entry includes:
+Requests are written to the `canary_audit` Monolog channel; see [Audit coverage](#audit-coverage) for exactly which. The plugin's default handler writes to `var/log/canary_audit.log`. Each entry includes:
 
 - Timestamp
 - Client IP
-- Scope attempted
+- Scope that authenticated the request (`null` for rejected requests)
 - Endpoint path and HTTP method
-- Response status code
+- Response status code (for passed requests, the status the controller returned)
 - Duration in milliseconds
 - Failure reason (if applicable)
 

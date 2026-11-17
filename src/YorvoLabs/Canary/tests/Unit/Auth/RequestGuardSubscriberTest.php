@@ -7,7 +7,9 @@ namespace YorvoLabs\Canary\Tests\Unit\Auth;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use YorvoLabs\Canary\Audit\AuditRecord;
@@ -197,9 +199,59 @@ final class RequestGuardSubscriberTest extends TestCase
     public function it_writes_an_audit_record_for_every_canary_request(): void
     {
         $sub = $this->makeSubscriber(production: false);
+
+        // Rejected: recorded immediately by the guard.
         $sub->onKernelRequest($this->makeEvent('/canary/health/live', https: false));
-        $sub->onKernelRequest($this->makeEvent('/canary/health/live', https: false, token: self::MONITORING_TOKEN));
+        self::assertCount(1, $this->auditRecords);
+
+        // Passed: recorded once the response is known.
+        $passed = $this->makeEvent('/canary/health/live', https: false, token: self::MONITORING_TOKEN);
+        $sub->onKernelRequest($passed);
+        self::assertCount(1, $this->auditRecords, 'A passed request is not recorded before the response'); // @phpstan-ignore staticMethod.alreadyNarrowedType
+
+        $sub->onKernelResponse($this->makeResponseEvent($passed, new Response('', 204)));
         self::assertCount(2, $this->auditRecords);
+        self::assertSame(204, $this->auditRecords[1]->statusCode);
+        self::assertSame(TokenScope::MONITORING, $this->auditRecords[1]->scope);
+        self::assertNull($this->auditRecords[1]->failureReason);
+    }
+
+    #[Test]
+    public function it_does_not_audit_a_rejected_request_twice(): void
+    {
+        $sub   = $this->makeSubscriber(production: false);
+        $event = $this->makeEvent('/canary/health/live', https: false);
+        $sub->onKernelRequest($event);
+        $response = $event->getResponse();
+        self::assertNotNull($response);
+
+        $sub->onKernelResponse($this->makeResponseEvent($event, $response));
+
+        self::assertCount(1, $this->auditRecords);
+        self::assertSame(401, $this->auditRecords[0]->statusCode);
+    }
+
+    #[Test]
+    public function it_audits_a_passed_request_only_once(): void
+    {
+        $sub   = $this->makeSubscriber(production: false);
+        $event = $this->makeEvent('/canary/health/live', https: false, token: self::MONITORING_TOKEN);
+        $sub->onKernelRequest($event);
+
+        $sub->onKernelResponse($this->makeResponseEvent($event, new Response('', 200)));
+        $sub->onKernelResponse($this->makeResponseEvent($event, new Response('', 200)));
+
+        self::assertCount(1, $this->auditRecords);
+    }
+
+    private function makeResponseEvent(RequestEvent $requestEvent, Response $response): ResponseEvent
+    {
+        return new ResponseEvent(
+            $requestEvent->getKernel(),
+            $requestEvent->getRequest(),
+            HttpKernelInterface::MAIN_REQUEST,
+            $response,
+        );
     }
 
     #[Test]
@@ -209,6 +261,15 @@ final class RequestGuardSubscriberTest extends TestCase
         self::assertArrayHasKey(KernelEvents::REQUEST, $events);
         self::assertSame('onKernelRequest', $events[KernelEvents::REQUEST][0]);
         self::assertSame(256, $events[KernelEvents::REQUEST][1]);
+    }
+
+    #[Test]
+    public function it_subscribes_to_kernel_response_at_the_lowest_priority(): void
+    {
+        $events = RequestGuardSubscriber::getSubscribedEvents();
+        self::assertArrayHasKey(KernelEvents::RESPONSE, $events);
+        self::assertSame('onKernelResponse', $events[KernelEvents::RESPONSE][0]);
+        self::assertSame(-1024, $events[KernelEvents::RESPONSE][1]);
     }
 
     #[Test]

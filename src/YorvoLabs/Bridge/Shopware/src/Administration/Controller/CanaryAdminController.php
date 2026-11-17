@@ -269,9 +269,9 @@ final class CanaryAdminController
     public function audit(Request $request): Response
     {
         $lines   = max(1, min(self::MAX_AUDIT_LINES, (int) ($request->query->get('lines') ?? self::DEFAULT_AUDIT_LINES)));
-        $logFile = $this->logDir . '/canary_audit.log';
+        $logFile = $this->resolveAuditLogFile();
 
-        if (!is_file($logFile)) {
+        if ($logFile === null) {
             return $this->responseFactory->notFound();
         }
 
@@ -281,10 +281,34 @@ final class CanaryAdminController
         $entries  = array_map(fn(string $line): string => $this->masker->maskText($line), $tail);
 
         return $this->responseFactory->ok([
-            'file'           => 'canary_audit.log',
+            'file'           => basename($logFile),
             'lines_returned' => count($entries),
             'entries'        => $entries,
         ]);
+    }
+
+    /**
+     * The audit log written by the plugin's default handler is canary_audit.log.
+     * If the channel was switched to Monolog's rotating_file handler (see
+     * monolog.xml), files are named canary_audit-YYYY-MM-DD.log; then the newest
+     * one is used.
+     */
+    private function resolveAuditLogFile(): ?string
+    {
+        $plain = $this->logDir . '/canary_audit.log';
+        if (is_file($plain)) {
+            return $plain;
+        }
+
+        $rotated = glob($this->logDir . '/canary_audit-*.log') ?: [];
+        if ($rotated === []) {
+            return null;
+        }
+
+        // Date-suffixed names sort chronologically.
+        rsort($rotated, SORT_STRING);
+
+        return $rotated[0];
     }
 
     private function readSpecificLogFile(Request $request, string $fileName): Response

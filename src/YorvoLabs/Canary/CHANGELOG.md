@@ -4,6 +4,22 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-11-17
+
+### Changed
+
+- **Failed authentication attempts now count toward the rate limit.** `RequestGuardSubscriber` checks the rate limit before the token, so the order is: feature flag (404) → HTTPS (403) → IP allowlist (403) → rate limit (429) → token (401 missing · 503 not configured · 401 wrong · 403 insufficient scope). Requests rejected by the allowlist do not touch rate-limit state. A `429` audit record has `scope: null`.
+- **Passed requests are audited with the status actually sent.** The audit record for a request that passes the guard is now written on `kernel.response` (new listener `RequestGuardSubscriber::onKernelResponse`, priority -1024) with the response's status code, instead of a fixed `200` at guard time. Its `duration_ms` now covers the controller as well. If you register the subscriber as a `kernel.event_subscriber`, nothing changes in your wiring.
+- `TokenAuthenticator` compares the presented token against every configured token without returning on the first match, and decides the result after the loop.
+- `ScopedToken::matches()` compares SHA-256 digests with `hash_equals()`, so the comparison no longer depends on the configured token's length.
+
+### Documentation
+
+- Authentication flow rewritten to match the code (order and status codes), including the `ADMIN` exception and exactly which requests are audited.
+- API reference: a wrong token returns `401`, not `403`.
+- `SECURITY.md`: 1.2.x is the supported version.
+- The 1.0.0 entry below carries the date of the `v1.0.0` tag.
+
 ## [1.1.0] — 2026-10-19
 
 No functional changes; released alongside `yorvolabs/canary-bridge-shopware` 1.1.0.
@@ -13,7 +29,7 @@ No functional changes; released alongside `yorvolabs/canary-bridge-shopware` 1.1
 - Documentation, issue and support links now point to the `yorvolabs/canary-platform` monorepo
 - Development dependencies updated (`composer audit` clean)
 
-## [1.0.0] — 2026-05-08
+## [1.0.0] — 2026-10-19
 
 ### Added
 

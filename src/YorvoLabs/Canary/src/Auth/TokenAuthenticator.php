@@ -13,9 +13,17 @@ use YorvoLabs\Canary\Exception\TokenNotConfiguredException;
  *
  * Resolution order:
  *   1. Extract a raw token from the Authorization header (Bearer scheme only).
- *   2. Compare against ADMIN token first — it satisfies any scope.
- *   3. Compare against the token for the required scope.
- *   4. All comparisons via hash_equals() to prevent timing attacks.
+ *      Missing or non-Bearer → TOKEN_MISSING.
+ *   2. If neither the ADMIN token nor the required scope's token is configured,
+ *      throw TokenNotConfiguredException (misconfiguration → 503).
+ *   3. Compare the raw token against every configured token, without stopping
+ *      at the first match, and decide the result only after the loop. The work
+ *      done is the same whichever token (if any) matches.
+ *   4. A matching token passes if its scope satisfies the required scope
+ *      (ADMIN satisfies every scope); a matching token with another scope gives
+ *      SCOPE_INSUFFICIENT; no match gives TOKEN_INVALID.
+ *
+ * Each comparison is constant-time (see ScopedToken::matches()).
  *
  * Tokens are injected as ScopedToken instances (built from env vars
  * by the DI container). A null entry means that scope is not configured.
@@ -48,17 +56,21 @@ final class TokenAuthenticator
             throw new TokenNotConfiguredException($requiredScope);
         }
 
-        // Iterate all configured tokens. Track whether the raw value matches any
-        // token at all — used to distinguish TOKEN_INVALID from SCOPE_INSUFFICIENT.
+        // Compare against every configured token; never return early. Track the
+        // first satisfying scope and whether anything matched at all (to tell
+        // TOKEN_INVALID from SCOPE_INSUFFICIENT), and decide after the loop.
+        $passedScope = null;
         $validTokenFound = false;
-        foreach ($this->tokens as $scopeValue => $scopedToken) {
-            $scope = TokenScope::from($scopeValue);
-            if ($scopedToken->matches($raw)) {
-                $validTokenFound = true;
-                if ($scope->satisfies($requiredScope)) {
-                    return AuthResult::pass($scope);
-                }
+        foreach ($this->tokens as $scopedToken) {
+            $matches = $scopedToken->matches($raw);
+            $validTokenFound = $validTokenFound || $matches;
+            if ($matches && $passedScope === null && $scopedToken->scope->satisfies($requiredScope)) {
+                $passedScope = $scopedToken->scope;
             }
+        }
+
+        if ($passedScope !== null) {
+            return AuthResult::pass($passedScope);
         }
 
         return $validTokenFound

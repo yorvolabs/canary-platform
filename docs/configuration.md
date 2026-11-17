@@ -55,6 +55,8 @@ An empty value disables IP filtering. In production, setting this is strongly re
 
 When a limit is exceeded, the response is `429 Too Many Requests` with a `Retry-After: <seconds>` header.
 
+The limit is checked before the token, so every request that passes the IP allowlist counts, including requests with a missing or wrong token. See [Authentication flow](authentication.md#authentication-flow).
+
 The default rate limiter uses JSON files in `var/canary/rate-limit/` (requires write access). For high-traffic deployments, implement a custom `RateLimiterInterface` backed by Redis. See [Extending: New Bridge](extending/new-bridge.md#custom-rate-limiter).
 
 ---
@@ -125,8 +127,21 @@ Maintenance mode state is stored in Shopware's `system_config` table and persist
 | Path | Purpose | Required by |
 |---|---|---|
 | `var/canary/rate-limit/` | Rate limit sliding-window files | `FileBasedRateLimiter` |
-| `var/log/canary_audit-*.log` | Audit log | `MonologAuditLogger` |
+| `var/log/canary_audit.log` | Audit log | `MonologAuditLogger` |
 
 Both paths are relative to the Shopware project root. The PHP process must have read/write access to both.
 
-Log rotation for the audit channel is handled by Monolog's `RotatingFileHandler` (default: 30-day retention). Standard OS log rotation (`logrotate`) will also work if configured.
+The plugin registers a plain `stream` handler for the audit channel: one file, `var/log/canary_audit.log`, with **no rotation and no retention limit**. Rotation is configuration you add yourself, either OS-level (`logrotate`) or by overriding the `canary_audit` handler in `config/packages/monolog.yaml`:
+
+```yaml
+monolog:
+    handlers:
+        canary_audit:
+            type: rotating_file
+            path: "%kernel.logs_dir%/canary_audit.log"
+            level: info
+            max_files: 30   # keep 30 daily files
+            channels: [canary_audit]
+```
+
+With `rotating_file`, Monolog writes `canary_audit-YYYY-MM-DD.log`; the admin audit view then shows the newest of these files.

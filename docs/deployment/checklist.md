@@ -126,7 +126,7 @@ See [CI/CD Integration](ci-cd.md) for pipeline examples.
 - [ ] Tokens are at least 64 characters
 - [ ] `APP_ENV=prod` is set (enforces HTTPS)
 - [ ] Canary endpoints are **not** publicly listed in robots.txt or sitemaps
-- [ ] Audit log location (`var/log/canary_audit-*.log`) is not publicly accessible via the webserver
+- [ ] Audit log location (`var/log/canary_audit.log`, or `canary_audit-*.log` if you configured rotation) is not publicly accessible via the webserver
 
 ---
 
@@ -141,5 +141,5 @@ See [CI/CD Integration](ci-cd.md) for pipeline examples.
 ## Ongoing maintenance
 
 - [ ] Token rotation procedure documented (generate → deploy → cache:clear → verify)
-- [ ] Log retention policy confirmed (Monolog default: 30-day rotating files)
+- [ ] Audit log rotation configured (the plugin default is a single file with no rotation; see [Configuration](../configuration.md#filesystem-requirements))
 - [ ] Rate limit directory `var/canary/rate-limit/` included in deployment cleanup if files accumulate

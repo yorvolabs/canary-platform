@@ -15,7 +15,7 @@ Secure, auditable HTTP endpoints for health monitoring, cache management, and de
 - **Diagnostics** — environment snapshot, config validation, log tail (PII-masked), queue depth, plugin list
 - **Token-scoped auth** — isolated Bearer tokens per endpoint group; constant-time comparison; IP allowlist
 - **Rate limiting** — sliding-window per-IP limiter (file-based or bring your own Redis implementation)
-- **Audit log** — every request (pass and fail) recorded with IP, scope, endpoint, status, duration
+- **Audit log** — passed and rejected requests recorded with IP, scope, endpoint, status, duration (disabled-feature 404s and sub-requests are not; see the authentication docs)
 - **Extensible** — tagged-service interfaces for health checks, deploy hooks, diagnostic checks, config providers, audit loggers
 
 ## Requirements

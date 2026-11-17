@@ -14,8 +14,8 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
  * Full 7-case auth matrix for GET {prefix}/health/live against a live Shopware kernel.
  *
  * This mirrors the test matrix defined in the core RequestGuardSubscriberTest but
- * verifies the wiring end-to-end: subscriber → token authenticator → IP checker
- * → rate limiter → controller.
+ * verifies the wiring end-to-end: subscriber → HTTPS → IP checker → rate limiter
+ * → token authenticator → controller.
  *
  * Cases:
  *   1. No token                     → 401

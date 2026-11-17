@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -58,6 +59,7 @@ final class RequestGuardSubscriberKernelTest extends TestCase
         bool $production = false,
         array $cidrs = [],
         array $enabledFeatures = [],
+        ?\Closure $controller = null,
     ): HttpKernel {
         $dispatcher = new EventDispatcher();
 
@@ -97,15 +99,23 @@ final class RequestGuardSubscriberKernelTest extends TestCase
 
         $dispatcher->addSubscriber($subscriber);
 
-        // A catch-all controller that returns 200 for any request that gets past the subscriber.
+        // A catch-all "controller" for any request that gets past the subscriber.
+        // Returns 200 unless a custom closure is given.
+        $controller ??= static fn(): Response => new Response('OK', 200);
         $dispatcher->addListener(
             KernelEvents::REQUEST,
-            function (RequestEvent $event): void {
+            function (RequestEvent $event) use ($controller): void {
                 if (!$event->hasResponse()) {
-                    $event->setResponse(new Response('OK', 200));
+                    $event->setResponse($controller());
                 }
             },
             priority: -100,
+        );
+
+        // Stand-in for the framework's ErrorListener: uncaught exceptions become a 500.
+        $dispatcher->addListener(
+            KernelEvents::EXCEPTION,
+            static fn(ExceptionEvent $event) => $event->setResponse(new Response('error', 500)),
         );
 
         return new HttpKernel(
@@ -260,5 +270,51 @@ final class RequestGuardSubscriberKernelTest extends TestCase
         self::assertSame('GET', $record->method);
         self::assertSame(401, $record->statusCode);
         self::assertNotNull($record->failureReason);
+    }
+
+    #[Test]
+    public function passed_request_is_audited_with_the_status_the_controller_returned(): void
+    {
+        $kernel  = $this->buildKernel(controller: static fn(): Response => new Response('degraded', 503));
+        $request = Request::create('http://example.com/canary/health/ready');
+        $request->headers->set('Authorization', 'Bearer ' . self::MONITORING_TOKEN);
+
+        $response = $this->handle($kernel, $request);
+
+        self::assertSame(503, $response->getStatusCode());
+        self::assertCount(1, $this->auditRecords);
+        self::assertSame(503, $this->auditRecords[0]->statusCode);
+        self::assertSame(TokenScope::MONITORING, $this->auditRecords[0]->scope);
+        self::assertNull($this->auditRecords[0]->failureReason);
+    }
+
+    #[Test]
+    public function passed_request_is_audited_with_500_when_the_controller_throws(): void
+    {
+        $kernel  = $this->buildKernel(controller: static fn(): Response => throw new \RuntimeException('boom'));
+        $request = Request::create('http://example.com/canary/health/ready');
+        $request->headers->set('Authorization', 'Bearer ' . self::MONITORING_TOKEN);
+
+        // catch: true — the exception listener turns the exception into a response
+        // and the kernel still dispatches kernel.response, as in production.
+        $response = $kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, true);
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertCount(1, $this->auditRecords);
+        self::assertSame(500, $this->auditRecords[0]->statusCode);
+    }
+
+    #[Test]
+    public function rejected_request_is_audited_once_with_the_guard_status(): void
+    {
+        $kernel  = $this->buildKernel();
+        $request = Request::create('http://example.com/canary/health/live');
+        $request->headers->set('Authorization', 'Bearer wrong');
+
+        $response = $this->handle($kernel, $request);
+
+        self::assertSame(401, $response->getStatusCode());
+        self::assertCount(1, $this->auditRecords);
+        self::assertSame(401, $this->auditRecords[0]->statusCode);
     }
 }
