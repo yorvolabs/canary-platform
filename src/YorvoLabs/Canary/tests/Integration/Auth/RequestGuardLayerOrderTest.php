@@ -25,7 +25,10 @@ use YorvoLabs\Canary\Auth\TokenAuthenticator;
 use YorvoLabs\Canary\Auth\TokenScope;
 use YorvoLabs\Canary\Configuration\Options;
 use YorvoLabs\Canary\Contract\AuditLoggerInterface;
+use YorvoLabs\Canary\Contract\RateLimiterInterface;
+use YorvoLabs\Canary\Exception\RateLimiterUnavailableException;
 use YorvoLabs\Canary\RateLimit\InMemoryRateLimiter;
+use YorvoLabs\Canary\RateLimit\RateLimitResult;
 use YorvoLabs\Canary\Response\ResponseFactory;
 
 /**
@@ -49,7 +52,7 @@ final class RequestGuardLayerOrderTest extends TestCase
     /** @var list<AuditRecord> */
     private array $auditRecords = [];
 
-    private InMemoryRateLimiter $rateLimiter;
+    private RateLimiterInterface $rateLimiter;
 
     protected function setUp(): void
     {
@@ -59,11 +62,13 @@ final class RequestGuardLayerOrderTest extends TestCase
 
     /**
      * @param list<string> $enabledFeatures
+     * @param list<string> $cidrs
      */
     private function buildKernel(
         bool $production = false,
         int $rateLimit = 60,
         array $enabledFeatures = [],
+        array $cidrs = ['10.0.0.0/8'],
     ): HttpKernel {
         $config = Options::fromArray(array_filter([
             'APP_ENV'                    => $production ? 'prod' : 'dev',
@@ -97,7 +102,7 @@ final class RequestGuardLayerOrderTest extends TestCase
         $dispatcher->addSubscriber(new RequestGuardSubscriber(
             $config,
             new TokenAuthenticator($tokenMap),
-            new IpAllowlistChecker(['10.0.0.0/8']),
+            new IpAllowlistChecker($cidrs),
             $this->rateLimiter,
             new ResponseFactory(),
             $auditLogger,
@@ -275,5 +280,58 @@ final class RequestGuardLayerOrderTest extends TestCase
         // The bucket is per group and IP, so a correct token from the same IP is limited too.
         $response = $this->send($kernel);
         self::assertSame(429, $response->getStatusCode());
+    }
+
+    // ------------------------------------------------------------------
+    // Rate-limit storage failures and IPv6 keying
+    // ------------------------------------------------------------------
+
+    private function unavailableLimiter(): RateLimiterInterface
+    {
+        return new class implements RateLimiterInterface {
+            public function check(string $key, int $limit): RateLimitResult
+            {
+                throw new RateLimiterUnavailableException('disk full');
+            }
+        };
+    }
+
+    #[Test]
+    public function health_requests_are_allowed_when_the_rate_limiter_is_unavailable(): void
+    {
+        $this->rateLimiter = $this->unavailableLimiter();
+
+        $response = $this->send($this->buildKernel());
+
+        self::assertSame(200, $response->getStatusCode(), 'Monitoring keeps working');
+    }
+
+    #[Test]
+    public function other_groups_answer_503_before_the_token_check_when_the_rate_limiter_is_unavailable(): void
+    {
+        $this->rateLimiter = $this->unavailableLimiter();
+
+        // A wrong token would be 401; the unavailable limiter decides first.
+        $response = $this->send($this->buildKernel(), path: '/canary/cache/opcache', token: self::WRONG_TOKEN);
+
+        self::assertSame(503, $response->getStatusCode());
+        self::assertCount(1, $this->auditRecords);
+        self::assertSame(AuthFailureReason::RATE_LIMIT_UNAVAILABLE, $this->lastAudit()->failureReason);
+        self::assertNull($this->lastAudit()->scope);
+
+        $body = json_decode((string) $response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame(['code' => 'SERVICE_UNAVAILABLE', 'message' => 'Temporarily unavailable'], $body['error'] ?? null);
+    }
+
+    #[Test]
+    public function ipv6_addresses_in_one_64_share_a_rate_limit_bucket(): void
+    {
+        $kernel = $this->buildKernel(rateLimit: 2, cidrs: ['2001:db8::/32']);
+
+        self::assertSame(200, $this->send($kernel, ip: '2001:db8:1:2::1')->getStatusCode());
+        self::assertSame(200, $this->send($kernel, ip: '2001:db8:1:2::2')->getStatusCode());
+        self::assertSame(429, $this->send($kernel, ip: '2001:db8:1:2::3')->getStatusCode(), 'Same /64, limit used up');
+        self::assertSame(200, $this->send($kernel, ip: '2001:db8:1:3::1')->getStatusCode(), 'Another /64 has its own bucket');
     }
 }

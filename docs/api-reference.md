@@ -42,7 +42,7 @@ All endpoints share a configurable URL prefix (default: `canary`, set via `CANAR
 | 403 | `FORBIDDEN` | Token valid but its scope does not cover the endpoint, IP not in allowlist, or HTTP in production |
 | 404 | `NOT_FOUND` | Path under the prefix matches no endpoint group, or its group is disabled via `CANARY_FEATURES` (same response for both) |
 | 429 | `RATE_LIMITED` | Rate limit exceeded; `Retry-After: N` header present. Failed authentication attempts count toward the limit |
-| 503 | `SERVICE_UNAVAILABLE` | Token for scope not configured |
+| 503 | `SERVICE_UNAVAILABLE` | Token for scope not configured, or (not for `/health/*`) the rate limiter cannot use its storage |
 
 ---
 

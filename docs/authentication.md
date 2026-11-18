@@ -50,7 +50,8 @@ Every request under the Canary route prefix passes through `RequestGuardSubscrib
 | 1 | **Route group** | The path matches no endpoint group (`/health/`, `/cache/`, `/diag/`, `/deploy/`), or its group is disabled via `CANARY_FEATURES` | `404 Not Found` (not audited; both cases give the same response) |
 | 2 | **HTTPS** | `APP_ENV=prod` and the request is not secure | `403 Forbidden` |
 | 3 | **IP allowlist** | `CANARY_ALLOWED_CIDRS` is set and the client IP is not in it | `403 Forbidden` |
-| 4 | **Rate limit** | The client IP has used up the limit for the endpoint group | `429 Too Many Requests` with `Retry-After` |
+| 4 | **Rate limit** | The client IP (IPv6: its /64) has used up the limit for the endpoint group | `429 Too Many Requests` with `Retry-After` |
+|   |  | The rate limiter cannot read or write its state | `/health/*`: allowed; other groups: `503 Service Unavailable` |
 | 5 | **Token** | No `Authorization: Bearer` header, or an empty value | `401 Unauthorized` |
 |   |  | Neither the scope's token nor the `ADMIN` token is configured | `503 Service Unavailable` |
 |   |  | The token matches no configured token | `401 Unauthorized` |

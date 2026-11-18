@@ -53,14 +53,14 @@ An empty value disables IP filtering. In production, setting this is strongly re
 
 | Env var | Admin config key | Default | Description |
 |---|---|---|---|
-| `CANARY_RATE_LIMIT_HEALTH` | `rateLimitHealth` | `60` | Max requests per minute for `/health/*` per IP |
-| `CANARY_RATE_LIMIT_MUTATION` | `rateLimitMutation` | `10` | Max requests per minute for `/cache/*`, `/diag/*`, `/deploy/*` per IP |
+| `CANARY_RATE_LIMIT_HEALTH` | `rateLimitHealth` | `60` | Max requests per minute for `/health/*` per IP (IPv6: per /64) |
+| `CANARY_RATE_LIMIT_MUTATION` | `rateLimitMutation` | `10` | Max requests per minute for `/cache/*`, `/diag/*`, `/deploy/*` per IP (IPv6: per /64) |
 
 When a limit is exceeded, the response is `429 Too Many Requests` with a `Retry-After: <seconds>` header.
 
 The limit is checked before the token, so every request that passes the IP allowlist counts, including requests with a missing or wrong token. See [Authentication flow](authentication.md#authentication-flow).
 
-The default rate limiter uses JSON files in `var/canary/rate-limit/` (requires write access). For high-traffic deployments, implement a custom `RateLimiterInterface` backed by Redis. See [Extending: New Bridge](extending/new-bridge.md#custom-rate-limiter).
+The default rate limiter uses JSON files in `var/canary/rate-limit/` (requires write access), one per endpoint group and client IP. Files without a request in the last minute are deleted automatically. At most 10,000 exist at a time (`FileBasedRateLimiter::DEFAULT_MAX_BUCKETS`, the second constructor argument); beyond that, requests from new IPs share one bucket per endpoint group, limited like any other, while callers that already have a bucket keep it. If the directory cannot be written, `/health/*` is still served and the other groups answer `503 Service Unavailable`. For high-traffic deployments, implement a custom `RateLimiterInterface` backed by Redis. See [Extending: New Bridge](extending/new-bridge.md#custom-rate-limiter).
 
 ---
 

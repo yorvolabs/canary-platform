@@ -142,4 +142,4 @@ See [CI/CD Integration](ci-cd.md) for pipeline examples.
 
 - [ ] Token rotation procedure documented (generate → deploy → cache:clear → verify)
 - [ ] Audit log rotation configured (the plugin default is a single file with no rotation; see [Configuration](../configuration.md#filesystem-requirements))
-- [ ] Rate limit directory `var/canary/rate-limit/` included in deployment cleanup if files accumulate
+- [ ] Disk space for `var/canary/rate-limit/` monitored: if it cannot be written, cache, diagnostics and deploy endpoints answer `503` (the limiter deletes idle files itself)

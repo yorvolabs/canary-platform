@@ -231,8 +231,10 @@ declare(strict_types=1);
 namespace Acme\Canary;
 
 use YorvoLabs\Canary\Contract\RateLimiterInterface;
+use YorvoLabs\Canary\Exception\RateLimiterUnavailableException;
 use YorvoLabs\Canary\RateLimit\RateLimitResult;
 use Predis\ClientInterface;
+use Predis\PredisException;
 
 final class RedisRateLimiter implements RateLimiterInterface
 {
@@ -245,20 +247,27 @@ final class RedisRateLimiter implements RateLimiterInterface
         $redisKey = 'canary_rl:' . hash('sha256', $key);
         $now      = time();
 
-        $this->redis->zremrangebyscore($redisKey, 0, $now - self::WINDOW_SECONDS);
-        $count = (int) $this->redis->zcard($redisKey);
+        try {
+            $this->redis->zremrangebyscore($redisKey, 0, $now - self::WINDOW_SECONDS);
+            $count = (int) $this->redis->zcard($redisKey);
 
-        if ($count >= $limit) {
-            return RateLimitResult::limited($limit, 0, self::WINDOW_SECONDS);
+            if ($count >= $limit) {
+                return RateLimitResult::deny(self::WINDOW_SECONDS);
+            }
+
+            $this->redis->zadd($redisKey, [$now . '_' . random_int(0, PHP_INT_MAX) => $now]);
+            $this->redis->expire($redisKey, self::WINDOW_SECONDS * 2);
+        } catch (PredisException $e) {
+            // Let the guard decide: health is allowed, the other groups get 503.
+            throw new RateLimiterUnavailableException('Redis unavailable', 0, $e);
         }
 
-        $this->redis->zadd($redisKey, [$now . '_' . random_int(0, PHP_INT_MAX) => $now]);
-        $this->redis->expire($redisKey, self::WINDOW_SECONDS * 2);
-
-        return RateLimitResult::allowed($limit, $limit - $count - 1);
+        return RateLimitResult::allow($limit - $count - 1);
     }
 }
 ```
+
+Keys look like `health:192.0.2.1` or `mutation:2001:db8:1:2::/64` (the guard keys IPv6 per /64). If your limiter cannot reach its storage, throw `RateLimiterUnavailableException` instead of allowing or denying: the guard then serves `/health/*` and answers `503` for the other groups.
 
 Register as the alias for `RateLimiterInterface`:
 

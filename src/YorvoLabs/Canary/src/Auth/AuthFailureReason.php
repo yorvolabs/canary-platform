@@ -32,4 +32,7 @@ enum AuthFailureReason: string
 
     /** No token is configured for the required scope (misconfiguration) */
     case TOKEN_NOT_CONFIGURED = 'token_not_configured';
+
+    /** The rate limiter could not read or write its state (non-health groups only) */
+    case RATE_LIMIT_UNAVAILABLE = 'rate_limit_unavailable';
 }

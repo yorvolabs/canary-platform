@@ -16,7 +16,7 @@ This package is the framework-agnostic core: the request guard (token scopes, IP
 - **Deploy lifecycle** — pre-deploy readiness checks, post-deploy verification, maintenance mode toggle
 - **Diagnostics** — environment snapshot, config validation, log tail (PII-masked), queue depth, plugin list
 - **Token-scoped auth** — isolated Bearer tokens per endpoint group; constant-time comparison; IP allowlist
-- **Rate limiting** — sliding-window per-IP limiter (file-based or bring your own Redis implementation)
+- **Rate limiting** — sliding-window limiter per IP (IPv6 per /64), file-based with bounded state, or bring your own Redis implementation
 - **Audit log** — passed and rejected requests recorded with IP, scope, endpoint, status, duration (404s for unknown or disabled paths and sub-requests are not; see the authentication docs)
 - **Extensible** — tagged-service interfaces for health checks, deploy hooks, diagnostic checks, config providers, audit loggers
 

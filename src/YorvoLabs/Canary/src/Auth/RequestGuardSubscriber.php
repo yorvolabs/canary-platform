@@ -15,7 +15,9 @@ use YorvoLabs\Canary\Configuration\Options;
 use YorvoLabs\Canary\Configuration\RateLimitGroup;
 use YorvoLabs\Canary\Contract\AuditLoggerInterface;
 use YorvoLabs\Canary\Contract\RateLimiterInterface;
+use YorvoLabs\Canary\Exception\RateLimiterUnavailableException;
 use YorvoLabs\Canary\Exception\TokenNotConfiguredException;
+use YorvoLabs\Canary\RateLimit\IpBucket;
 use YorvoLabs\Canary\Response\ResponseFactory;
 
 /**
@@ -29,8 +31,9 @@ use YorvoLabs\Canary\Response\ResponseFactory;
  *      or matches a disabled group, returns 404, no audit entry
  *   1. HTTPS enforcement (production only) — 403
  *   2. IP allowlist — 403
- *   3. Rate limiting — 429 (counted per group and IP, before authentication,
- *      so failed token attempts consume the limit)
+ *   3. Rate limiting — 429 (counted per group and IP, IPv6 per /64, before
+ *      authentication, so failed token attempts consume the limit). If the
+ *      limiter cannot use its storage: health is allowed, other groups get 503.
  *   4. Token authentication + scope — 401 missing, 503 not configured,
  *      401 wrong token, 403 insufficient scope
  *
@@ -136,10 +139,23 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
         // reaches the token check counts, including failed ones. The scope is not
         // known yet, so the audit record carries scope: null.
         $rateLimit = $this->config->getRateLimit($resolved['rateGroup']);
-        $rateLimitKey = "{$resolved['rateGroup']->value}:{$ip}";
-        $rateLimitResult = $this->rateLimiter->check($rateLimitKey, $rateLimit);
+        $rateLimitKey = $resolved['rateGroup']->value . ':' . IpBucket::of($ip);
 
-        if (!$rateLimitResult->allowed) {
+        try {
+            $rateLimitResult = $this->rateLimiter->check($rateLimitKey, $rateLimit);
+        } catch (RateLimiterUnavailableException) {
+            // Fail open for health, so monitoring survives a full or read-only disk;
+            // fail closed for cache, diagnostics and deploy.
+            if ($resolved['rateGroup'] === RateLimitGroup::HEALTH) {
+                $rateLimitResult = null;
+            } else {
+                $this->audit($ip, null, $path, $request->getMethod(), 503, $startedAt, AuthFailureReason::RATE_LIMIT_UNAVAILABLE);
+                $event->setResponse($this->responseFactory->serviceUnavailable('Temporarily unavailable', $requestId));
+                return;
+            }
+        }
+
+        if ($rateLimitResult !== null && !$rateLimitResult->allowed) {
             $this->audit($ip, null, $path, $request->getMethod(), 429, $startedAt, AuthFailureReason::RATE_LIMITED);
             $event->setResponse($this->responseFactory->tooManyRequests($rateLimitResult->retryAfterSeconds, $requestId));
             return;

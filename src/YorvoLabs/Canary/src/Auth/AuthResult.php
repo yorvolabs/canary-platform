@@ -50,11 +50,12 @@ final class AuthResult
             AuthFailureReason::SCOPE_INSUFFICIENT => 403,
             AuthFailureReason::IP_NOT_ALLOWED     => 403,
             AuthFailureReason::HTTPS_REQUIRED     => 403,
-            // The following two are handled directly in RequestGuardSubscriber before
+            // The following are handled directly in RequestGuardSubscriber before
             // AuthResult is consulted; listed here so the match remains exhaustive.
-            AuthFailureReason::RATE_LIMITED         => 429,
-            AuthFailureReason::TOKEN_NOT_CONFIGURED => 503,
-            null                                    => 500,
+            AuthFailureReason::RATE_LIMITED           => 429,
+            AuthFailureReason::TOKEN_NOT_CONFIGURED   => 503,
+            AuthFailureReason::RATE_LIMIT_UNAVAILABLE => 503,
+            null                                      => 500,
         };
     }
 }
