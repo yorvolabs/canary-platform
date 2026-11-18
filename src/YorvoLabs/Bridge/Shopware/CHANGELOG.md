@@ -4,6 +4,12 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-11-18
+
+### Changed
+
+- Requires `yorvolabs/canary` ^1.3: the rate limiter removes idle buckets, caps their number, limits IPv6 clients per /64, and on storage errors serves `/health/*` while the other groups answer `503`. Disk space for `var/canary/rate-limit/` is worth monitoring (see the core changelog).
+
 ## [1.2.0] — 2026-11-18
 
 ### Changed

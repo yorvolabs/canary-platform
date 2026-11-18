@@ -4,10 +4,13 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] — 2026-11-18
 
 ### Changed
 
+- **Rate limiter.** `FileBasedRateLimiter` removes buckets without a request for a full window and keeps at most 10,000 buckets (`DEFAULT_MAX_BUCKETS`, second constructor argument); beyond that, new client IPs share one bucket per endpoint group. IPv6 clients are limited per /64 (`IpBucket`). If the limiter cannot read or write its storage, it throws the new `RateLimiterUnavailableException`; the guard then serves `/health/*` and answers `503` for the other groups (audit reason `rate_limit_unavailable`). See "Rate limiting" in `docs/configuration.md`.
+- `AuthFailureReason` has a new case, `RATE_LIMIT_UNAVAILABLE`. Code that matches every case of this enum needs a branch for it.
+- Custom `RateLimiterInterface` implementations can throw `RateLimiterUnavailableException` when their storage is unavailable, so the guard applies the same per-group handling.
 - The "token too short" and "no token configured" error messages no longer tell you to run `bin/console canary:token:generate`, a command that only the Shopware bridge provides. They now suggest `php -r 'echo bin2hex(random_bytes(32));'` and point to the token requirements in `docs/authentication.md`. The hint is `ScopedToken::GENERATE_HINT`.
 
 ### Documentation
@@ -16,6 +19,8 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The token-generation instructions mark `canary:token:generate` as the Shopware plugin's command.
 - `TokenScope` docblock: scopes are matched exactly, not ordered by privilege.
 - The disabled-group `404` hides only whether a group is disabled or does not exist, not which groups are enabled (enabled groups answer `401` without a token). The docs claimed more.
+- Extending: the Redis rate limiter example uses the actual `RateLimitResult` methods.
+- `SECURITY.md`: 1.3.x is the supported version.
 
 ## [1.2.0] — 2026-11-18
 
