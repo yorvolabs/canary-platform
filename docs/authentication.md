@@ -60,7 +60,7 @@ Requests that pass all checks proceed to the controller.
 
 Every `401` carries `WWW-Authenticate: Bearer` (RFC 9110 §15.5.2, RFC 6750 §3).
 
-**What the `404` hides.** A path under the prefix that matches no endpoint group and a path in a disabled group get the same `404` (same body shape and headers), so a caller cannot tell which groups are enabled. The `404` is Canary's own JSON error with `X-Canary-RequestId`, not the host application's `404` page: it does not hide that Canary is installed under the prefix, which the guard's other refusals and Canary's own endpoint responses show anyway.
+**What the `404` hides.** A path under the prefix that matches no endpoint group and a path in a disabled group get the same `404` (same body shape and headers), so a caller cannot tell a disabled group from a route that does not exist. It does not hide which groups are enabled: an enabled group answers `401` to a caller without a token. The group names are listed in these docs anyway; the main purpose of check 1 is that code in a disabled group is never reached. The `404` is Canary's own JSON error with `X-Canary-RequestId`, not the host application's `404` page: it does not hide that Canary is installed under the prefix, which the guard's other refusals and Canary's own endpoint responses show anyway.
 
 **Failed attempts count toward the rate limit.** The rate limit (check 4) runs before the token check, so every request that gets past the allowlist uses up one request from the limit for its endpoint group and IP, whether its token is right or wrong. Repeated wrong tokens from one IP end in `429`, and after that the same IP is limited for every token, including correct ones, until the window frees up.
 

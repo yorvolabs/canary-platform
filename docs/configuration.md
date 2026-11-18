@@ -101,7 +101,7 @@ Changing the prefix requires `bin/console cache:clear` to regenerate the route t
 
 Valid group names: `health`, `cache`, `deploy`, `diagnostics`.
 
-Disabled groups return `404 Not Found` before any other check, not audited, with the same response as a path under the prefix that matches no group, so callers cannot tell which groups are enabled.
+Disabled groups return `404 Not Found` before any other check, not audited, with the same response as a path under the prefix that matches no group, so a caller cannot tell a disabled group from a route that does not exist. Enabled groups still answer `401` to a caller without a token, so this does not hide which groups are enabled.
 
 Examples:
 

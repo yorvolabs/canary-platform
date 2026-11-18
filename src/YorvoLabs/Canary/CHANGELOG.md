@@ -15,6 +15,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - README and getting-started: the core package contains the request guard, runners and response factory, but no controllers or routes.
 - The token-generation instructions mark `canary:token:generate` as the Shopware plugin's command.
 - `TokenScope` docblock: scopes are matched exactly, not ordered by privilege.
+- The disabled-group `404` hides only whether a group is disabled or does not exist, not which groups are enabled (enabled groups answer `401` without a token). The docs claimed more.
 
 ## [1.2.0] — 2026-11-18
 
