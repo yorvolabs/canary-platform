@@ -34,11 +34,21 @@ final class OptionsTest extends TestCase
     #[Test]
     public function it_throws_when_a_token_is_present_but_too_short(): void
     {
-        $this->expectException(RuntimeException::class);
-
-        Options::fromArray([
-            'CANARY_TOKEN_MONITORING' => 'too-short',
-        ]);
+        try {
+            Options::fromArray([
+                'CANARY_TOKEN_MONITORING' => 'too-short',
+            ]);
+            self::fail('Expected a RuntimeException for a short token');
+        } catch (RuntimeException $e) {
+            self::assertSame(
+                'Token for scope "monitoring" is too short (minimum 64 characters). '
+                . "Generate one with a cryptographically secure generator, e.g. php -r 'echo bin2hex(random_bytes(32));' "
+                . '(see docs/authentication.md#token-requirements).',
+                $e->getMessage(),
+            );
+            // The core must not name commands that only a bridge provides.
+            self::assertStringNotContainsString('bin/console', $e->getMessage());
+        }
     }
 
     #[Test]

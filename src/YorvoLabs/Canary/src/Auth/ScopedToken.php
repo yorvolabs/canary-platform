@@ -16,6 +16,14 @@ final class ScopedToken
 {
     public const MIN_LENGTH = 64;
 
+    /**
+     * How to make a valid token, for error messages. Framework-neutral on purpose:
+     * the core does not name commands that only a bridge provides.
+     */
+    public const GENERATE_HINT = 'Generate one with a cryptographically secure generator, '
+        . "e.g. php -r 'echo bin2hex(random_bytes(32));' "
+        . '(see docs/authentication.md#token-requirements).';
+
     /** SHA-256 of the token, so comparisons always run over 32 bytes. */
     private readonly string $digest;
 
@@ -33,11 +41,10 @@ final class ScopedToken
     {
         if (strlen($rawToken) < self::MIN_LENGTH) {
             throw new RuntimeException(sprintf(
-                'Token for scope "%s" is too short (minimum %d characters). '
-                . 'Generate one with: bin/console canary:token:generate %s',
+                'Token for scope "%s" is too short (minimum %d characters). %s',
                 $scope->value,
                 self::MIN_LENGTH,
-                $scope->value,
+                self::GENERATE_HINT,
             ));
         }
 

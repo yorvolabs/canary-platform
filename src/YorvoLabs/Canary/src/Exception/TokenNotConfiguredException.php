@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace YorvoLabs\Canary\Exception;
 
+use YorvoLabs\Canary\Auth\ScopedToken;
 use YorvoLabs\Canary\Auth\TokenScope;
 
 /**
@@ -18,11 +19,11 @@ final class TokenNotConfiguredException extends RuntimeException
     {
         parent::__construct(sprintf(
             'No token configured for scope "%s". '
-            . 'Set the %s environment variable (minimum 64 characters). '
-            . 'Generate one with: bin/console canary:token:generate %s',
+            . 'Set the %s environment variable (minimum %d characters). %s',
             $scope->value,
             $scope->envVar(),
-            $scope->value,
+            ScopedToken::MIN_LENGTH,
+            ScopedToken::GENERATE_HINT,
         ));
     }
 }

@@ -93,8 +93,21 @@ final class TokenAuthenticatorTest extends TestCase
     public function it_throws_when_neither_admin_nor_scope_token_is_configured(): void
     {
         $auth = new TokenAuthenticator([]);
-        $this->expectException(TokenNotConfiguredException::class);
-        $auth->authenticate($this->requestWith(str_repeat('a', 64)), TokenScope::MONITORING);
+
+        try {
+            $auth->authenticate($this->requestWith(str_repeat('a', 64)), TokenScope::MONITORING);
+            self::fail('Expected TokenNotConfiguredException');
+        } catch (TokenNotConfiguredException $e) {
+            self::assertSame(
+                'No token configured for scope "monitoring". '
+                . 'Set the CANARY_TOKEN_MONITORING environment variable (minimum 64 characters). '
+                . "Generate one with a cryptographically secure generator, e.g. php -r 'echo bin2hex(random_bytes(32));' "
+                . '(see docs/authentication.md#token-requirements).',
+                $e->getMessage(),
+            );
+            // The core must not name commands that only a bridge provides.
+            self::assertStringNotContainsString('bin/console', $e->getMessage());
+        }
     }
 
     #[Test]

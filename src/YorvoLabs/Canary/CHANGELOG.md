@@ -4,6 +4,18 @@ All notable changes to this package are documented here.
 This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The "token too short" and "no token configured" error messages no longer tell you to run `bin/console canary:token:generate`, a command that only the Shopware bridge provides. They now suggest `php -r 'echo bin2hex(random_bytes(32));'` and point to the token requirements in `docs/authentication.md`. The hint is `ScopedToken::GENERATE_HINT`.
+
+### Documentation
+
+- README and getting-started: the core package contains the request guard, runners and response factory, but no controllers or routes.
+- The token-generation instructions mark `canary:token:generate` as the Shopware plugin's command.
+- `TokenScope` docblock: scopes are matched exactly, not ordered by privilege.
+
 ## [1.2.0] — 2026-11-18
 
 ### Changed
