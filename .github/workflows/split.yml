@@ -46,7 +46,7 @@ jobs:
 
       # Push to main → split branch only
       - if: "!startsWith(github.ref, 'refs/tags/')"
-        uses: danharrin/monorepo-split-github-action@v2.3.0
+        uses: danharrin/monorepo-split-github-action@v2.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
         with:
@@ -59,7 +59,7 @@ jobs:
 
       # Tag push → split branch and propagate the tag (Packagist reads versions from split repo tags)
       - if: startsWith(github.ref, 'refs/tags/')
-        uses: danharrin/monorepo-split-github-action@v2.3.0
+        uses: danharrin/monorepo-split-github-action@v2.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
         with:
@@ -71,8 +71,10 @@ jobs:
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
 
-      # The split action ignores git errors (bad token, rejected push) and still exits 0,
-      # so compare what actually landed in the split repo with the package directory.
+      # v2.3.0 ignored git errors and broke on an apostrophe in the commit subject;
+      # v2.4.5 escapes the message and stops on a failed commit or branch push, but
+      # still ignores a failed tag push. So compare what actually landed in the split
+      # repo with the package directory.
       - name: Verify split repository received the package
         env:
           TOKEN: ${{ secrets.SPLIT_MONOREPO_TOKEN }}
