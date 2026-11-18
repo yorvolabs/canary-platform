@@ -25,7 +25,8 @@ use YorvoLabs\Canary\Response\ResponseFactory;
  * unauthorized requests are rejected before any controller is instantiated.
  *
  * Layer execution order (first failure terminates):
- *   0. Feature flag — disabled groups return 404, no audit entry
+ *   0. Route group — a path under the prefix that matches no endpoint group,
+ *      or matches a disabled group, returns 404, no audit entry
  *   1. HTTPS enforcement (production only) — 403
  *   2. IP allowlist — 403
  *   3. Rate limiting — 429 (counted per group and IP, before authentication,
@@ -44,8 +45,8 @@ use YorvoLabs\Canary\Response\ResponseFactory;
  * audit record. Rejections are recorded with the guard's status code when they
  * happen. Requests that pass every layer are recorded on kernel.response with
  * the status code of the response actually sent (controller result, or the
- * error response if the controller threw). Not audited: disabled-feature 404s
- * (layer 0), sub-requests, and passed requests for which the kernel never
+ * error response if the controller threw). Not audited: layer-0 404s (unknown
+ * path or disabled group), sub-requests, and passed requests for which the kernel never
  * dispatches kernel.response (e.g. a fatal PHP error).
  *
  * A single request ID is generated at the start of every ops request and
@@ -105,10 +106,11 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
 
         $resolved = $this->resolvePath($path);
 
-        // Layer 0: Feature flag — disabled endpoint groups return 404.
-        // Intentionally not audited: revealing that an endpoint exists but is
-        // disabled would expose configuration details to unauthenticated callers.
-        if ($resolved['feature'] !== null && !$this->config->isFeatureEnabled($resolved['feature'])) {
+        // Layer 0: Route group — a path that matches no endpoint group and a path
+        // in a disabled group get the same 404, before any other check and
+        // without an audit record, so a caller cannot tell a disabled group from
+        // a route that does not exist.
+        if ($resolved === null || !$this->config->isFeatureEnabled($resolved['feature'])) {
             $event->setResponse($this->responseFactory->notFound($requestId));
             return;
         }
@@ -205,9 +207,12 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
      * Maps a path to its feature gate, required token scope, and rate-limit group.
      * Single place to update when adding new endpoint groups.
      *
-     * @return array{feature: Feature|null, scope: TokenScope, rateGroup: RateLimitGroup}
+     * Returns null for a path under the prefix that belongs to no group: there
+     * are no routes outside the groups, so such a path is answered with 404.
+     *
+     * @return array{feature: Feature, scope: TokenScope, rateGroup: RateLimitGroup}|null
      */
-    private function resolvePath(string $path): array
+    private function resolvePath(string $path): array|null
     {
         $p = $this->config->getRoutePrefix();
 
@@ -216,7 +221,7 @@ final class RequestGuardSubscriber implements EventSubscriberInterface
             str_starts_with($path, $p . '/cache/')   => ['feature' => Feature::CACHE,         'scope' => TokenScope::CACHE,         'rateGroup' => RateLimitGroup::MUTATION],
             str_starts_with($path, $p . '/diag/')    => ['feature' => Feature::DIAGNOSTICS,   'scope' => TokenScope::DIAGNOSTICS,   'rateGroup' => RateLimitGroup::MUTATION],
             str_starts_with($path, $p . '/deploy/')  => ['feature' => Feature::DEPLOY,         'scope' => TokenScope::DEPLOY,        'rateGroup' => RateLimitGroup::MUTATION],
-            default                                   => ['feature' => null,                   'scope' => TokenScope::ADMIN,         'rateGroup' => RateLimitGroup::MUTATION],
+            default                                   => null,
         };
     }
 

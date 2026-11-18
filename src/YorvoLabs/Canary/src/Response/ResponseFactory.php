@@ -56,7 +56,10 @@ final class ResponseFactory
 
     public function unauthorized(string|null $requestId = null): JsonResponse
     {
-        return $this->error('UNAUTHORIZED', 'Authentication required', 401, $requestId);
+        $response = $this->error('UNAUTHORIZED', 'Authentication required', 401, $requestId);
+        // RFC 9110 §15.5.2: a 401 must carry a challenge; Canary uses bearer tokens (RFC 6750 §3).
+        $response->headers->set('WWW-Authenticate', 'Bearer');
+        return $response;
     }
 
     public function forbidden(string $reason, string|null $requestId = null): JsonResponse

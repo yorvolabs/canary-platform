@@ -8,7 +8,7 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Requires `yorvolabs/canary` ^1.2: failed authentication attempts now count toward the rate limit, and passed requests are audited with the status code actually sent (see the core changelog).
+- Requires `yorvolabs/canary` ^1.2: failed authentication attempts now count toward the rate limit, passed requests are audited with the status code actually sent, a path under the prefix that matches no group now answers `404`, and `401` responses now send `WWW-Authenticate` (see the core changelog).
 - The admin audit view (`/api/_action/canary/audit`) reads `canary_audit.log` and, if that file does not exist, the newest `canary_audit-*.log` (the names Monolog's `rotating_file` handler uses).
 
 ### Fixed

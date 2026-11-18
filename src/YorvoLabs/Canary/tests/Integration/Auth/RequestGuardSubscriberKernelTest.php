@@ -317,4 +317,119 @@ final class RequestGuardSubscriberKernelTest extends TestCase
         self::assertCount(1, $this->auditRecords);
         self::assertSame(401, $this->auditRecords[0]->statusCode);
     }
+
+    // ------------------------------------------------------------------
+    // Unknown paths under the prefix
+    // ------------------------------------------------------------------
+
+    #[Test]
+    public function unknown_path_and_disabled_group_look_the_same_to_a_caller_without_a_token(): void
+    {
+        // Health is disabled; /canary/nope matches no group at all.
+        $kernel = $this->buildKernel(enabledFeatures: ['cache']);
+
+        $disabled = $this->handle($kernel, Request::create('http://example.com/canary/health/live'));
+        $unknown  = $this->handle($kernel, Request::create('http://example.com/canary/nope'));
+
+        self::assertSame(404, $disabled->getStatusCode());
+        self::assertSame($disabled->getStatusCode(), $unknown->getStatusCode());
+        self::assertSame($this->normalisedBody($disabled), $this->normalisedBody($unknown));
+        self::assertSame($this->normalisedHeaders($disabled), $this->normalisedHeaders($unknown));
+        self::assertEmpty($this->auditRecords, 'Neither 404 may produce an audit record');
+    }
+
+    #[Test]
+    public function unknown_path_returns_404_before_every_other_check_and_is_not_audited(): void
+    {
+        // Production over plain HTTP from an IP outside the allowlist: a path in
+        // a group would get 403, an unknown path still gets 404.
+        $kernel  = $this->buildKernel(production: true, cidrs: ['10.0.0.0/8']);
+        $request = Request::create('http://example.com/canary/nope', server: ['REMOTE_ADDR' => '203.0.113.9']);
+        $request->headers->set('Authorization', 'Bearer ' . self::MONITORING_TOKEN);
+
+        $response = $this->handle($kernel, $request);
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertFalse($response->headers->has('WWW-Authenticate'));
+        self::assertEmpty($this->auditRecords, 'Unknown-path 404 must not produce an audit record');
+    }
+
+    #[Test]
+    public function path_equal_to_a_group_name_without_trailing_slash_is_unknown(): void
+    {
+        $kernel   = $this->buildKernel();
+        $response = $this->handle($kernel, Request::create('http://example.com/canary/health'));
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertEmpty($this->auditRecords);
+    }
+
+    // ------------------------------------------------------------------
+    // WWW-Authenticate on 401
+    // ------------------------------------------------------------------
+
+    #[Test]
+    public function missing_token_401_carries_a_bearer_challenge(): void
+    {
+        $response = $this->handle($this->buildKernel(), Request::create('http://example.com/canary/health/live'));
+
+        self::assertSame(401, $response->getStatusCode());
+        self::assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+    }
+
+    #[Test]
+    public function wrong_token_401_carries_a_bearer_challenge(): void
+    {
+        $request = Request::create('http://example.com/canary/health/live');
+        $request->headers->set('Authorization', 'Bearer wrong');
+
+        $response = $this->handle($this->buildKernel(), $request);
+
+        self::assertSame(401, $response->getStatusCode());
+        self::assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+    }
+
+    #[Test]
+    public function non_401_rejections_carry_no_challenge(): void
+    {
+        // IP outside the allowlist -> 403, which is not an authentication challenge.
+        $request = Request::create('http://example.com/canary/health/live', server: ['REMOTE_ADDR' => '203.0.113.9']);
+
+        $response = $this->handle($this->buildKernel(cidrs: ['10.0.0.0/8']), $request);
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertFalse($response->headers->has('WWW-Authenticate'));
+    }
+
+    /**
+     * Body with the per-request values (request ID, duration) blanked out.
+     *
+     * @return array<string, mixed>
+     */
+    private function normalisedBody(Response $response): array
+    {
+        $body = json_decode((string) $response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertIsArray($body['meta'] ?? null);
+        $body['meta']['request_id']  = '<id>';
+        $body['meta']['duration_ms'] = 0;
+
+        return $body;
+    }
+
+    /**
+     * Header names and values, with the per-request ID and Date blanked out.
+     *
+     * @return array<string, list<string|null>>
+     */
+    private function normalisedHeaders(Response $response): array
+    {
+        $headers = $response->headers->all();
+        self::assertStringStartsWith('canary-', (string) $response->headers->get('X-Canary-RequestId'));
+        $headers['x-canary-requestid'] = ['<id>'];
+        unset($headers['date']);
+        ksort($headers);
+
+        return $headers;
+    }
 }

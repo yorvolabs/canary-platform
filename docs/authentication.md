@@ -28,8 +28,8 @@ There is no fallback to query parameters or cookies. This is intentional — it 
 
 ## Token requirements
 
-- Minimum length: **64 characters** (32 bytes of entropy)
-- Comparison is constant-time (`hash_equals`) to prevent timing attacks
+- Minimum length: **64 characters**. The check measures length only; generate tokens with `canary:token:generate` (32 random bytes, hex-encoded) so that they are also random
+- Comparison uses `hash_equals()` over SHA-256 digests and checks every configured token, designed to avoid timing differences (not measured)
 - Tokens are stored as plain strings in env vars or Shopware's `system_config` table
 
 Generate tokens with:
@@ -46,7 +46,7 @@ Every request under the Canary route prefix passes through `RequestGuardSubscrib
 
 | # | Check | Fails when | Response |
 |---|---|---|---|
-| 1 | **Feature flag** | The endpoint group is disabled via `CANARY_FEATURES` | `404 Not Found` (not audited, so a disabled group looks like a missing route) |
+| 1 | **Route group** | The path matches no endpoint group (`/health/`, `/cache/`, `/diag/`, `/deploy/`), or its group is disabled via `CANARY_FEATURES` | `404 Not Found` (not audited; both cases give the same response) |
 | 2 | **HTTPS** | `APP_ENV=prod` and the request is not secure | `403 Forbidden` |
 | 3 | **IP allowlist** | `CANARY_ALLOWED_CIDRS` is set and the client IP is not in it | `403 Forbidden` |
 | 4 | **Rate limit** | The client IP has used up the limit for the endpoint group | `429 Too Many Requests` with `Retry-After` |
@@ -57,6 +57,10 @@ Every request under the Canary route prefix passes through `RequestGuardSubscrib
 
 Requests that pass all checks proceed to the controller.
 
+Every `401` carries `WWW-Authenticate: Bearer` (RFC 9110 §15.5.2, RFC 6750 §3).
+
+**What the `404` hides.** A path under the prefix that matches no endpoint group and a path in a disabled group get the same `404` (same body shape and headers), so a caller cannot tell which groups are enabled. The `404` is Canary's own JSON error with `X-Canary-RequestId`, not the host application's `404` page: it does not hide that Canary is installed under the prefix, which every other Canary response shows anyway.
+
 **Failed attempts count toward the rate limit.** The rate limit (check 4) runs before the token check, so every request that gets past the allowlist uses up one request from the limit for its endpoint group and IP, whether its token is right or wrong. Repeated wrong tokens from one IP end in `429`, and after that the same IP is limited for every token, including correct ones, until the window frees up.
 
 **Why the allowlist comes before the rate limit.** Requests from IPs outside the allowlist are rejected before the rate limiter runs, so they never create or update rate-limit state (with the default `FileBasedRateLimiter`, a file per bucket). Blocked IPs cannot reach the token check whatever their request rate.
@@ -65,14 +69,14 @@ Requests that pass all checks proceed to the controller.
 
 ### Audit coverage
 
-One audit record is written for every main request that reaches check 2 or later:
+One audit record is written for every main request that passes check 1:
 
 - Rejected requests are recorded when the guard rejects them, with the guard's status code. A `429` record has `scope: null`, because the token has not been checked yet.
 - Requests that pass every check are recorded on `kernel.response`, with the status code of the response actually sent: the controller's status, or the error response's status if the controller threw.
 
 Not audited:
 
-- Disabled-feature `404`s (check 1).
+- `404`s from check 1: paths that match no endpoint group and paths in a disabled group.
 - Sub-requests. The guard only inspects main requests; a sub-request is neither checked nor recorded.
 - A passed request for which the kernel never dispatches `kernel.response`, for example after a fatal PHP error.
 

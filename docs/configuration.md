@@ -16,7 +16,7 @@ After changing any environment variable, run `bin/console cache:clear`.
 | `CANARY_TOKEN_DEPLOY` | `tokenDeploy` | Token for `/deploy/*` endpoints |
 | `CANARY_TOKEN_ADMIN` | `tokenAdmin` | Supertoken — satisfies all scope checks |
 
-All tokens must be at least 64 characters (32 bytes of hex entropy). Generate with:
+All tokens must be at least 64 characters (the check measures length only). Generate them with the command below, which makes 32 random bytes, hex-encoded:
 
 ```bash
 bin/console canary:token:generate <scope>
@@ -98,7 +98,7 @@ Changing the prefix requires `bin/console cache:clear` to regenerate the route t
 
 Valid group names: `health`, `cache`, `deploy`, `diagnostics`.
 
-Disabled groups return `404 Not Found` (before auth checks, to avoid leaking endpoint existence).
+Disabled groups return `404 Not Found` before any other check, not audited, with the same response as a path under the prefix that matches no group, so callers cannot tell which groups are enabled.
 
 Examples:
 
