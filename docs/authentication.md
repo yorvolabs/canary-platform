@@ -28,15 +28,16 @@ There is no fallback to query parameters or cookies. This is intentional — it 
 
 ## Token requirements
 
-- Minimum length: **64 characters**. The check measures length only; generate tokens with `canary:token:generate` (32 random bytes, hex-encoded) so that they are also random
+- Minimum length: **64 characters**. The check measures length only; generate tokens as 32 random bytes, hex-encoded (commands below), so that they are also random
 - Comparison uses `hash_equals()` over SHA-256 digests and checks every configured token, designed to avoid timing differences (not measured)
 - Tokens are stored as plain strings in env vars or Shopware's `system_config` table
 
 Generate tokens with:
 
 ```bash
+# Shopware plugin:
 bin/console canary:token:generate <scope>
-# or in any shell:
+# any shell:
 php -r "echo bin2hex(random_bytes(32)) . PHP_EOL;"
 ```
 
@@ -59,7 +60,7 @@ Requests that pass all checks proceed to the controller.
 
 Every `401` carries `WWW-Authenticate: Bearer` (RFC 9110 §15.5.2, RFC 6750 §3).
 
-**What the `404` hides.** A path under the prefix that matches no endpoint group and a path in a disabled group get the same `404` (same body shape and headers), so a caller cannot tell which groups are enabled. The `404` is Canary's own JSON error with `X-Canary-RequestId`, not the host application's `404` page: it does not hide that Canary is installed under the prefix, which every other Canary response shows anyway.
+**What the `404` hides.** A path under the prefix that matches no endpoint group and a path in a disabled group get the same `404` (same body shape and headers), so a caller cannot tell which groups are enabled. The `404` is Canary's own JSON error with `X-Canary-RequestId`, not the host application's `404` page: it does not hide that Canary is installed under the prefix, which the guard's other refusals and Canary's own endpoint responses show anyway.
 
 **Failed attempts count toward the rate limit.** The rate limit (check 4) runs before the token check, so every request that gets past the allowlist uses up one request from the limit for its endpoint group and IP, whether its token is right or wrong. Repeated wrong tokens from one IP end in `429`, and after that the same IP is limited for every token, including correct ones, until the window frees up.
 

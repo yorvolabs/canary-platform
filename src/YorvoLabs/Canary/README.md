@@ -6,6 +6,8 @@
 
 Secure, auditable HTTP endpoints for health monitoring, cache management, and deployment automation in Symfony-based applications.
 
+This package is the framework-agnostic core: the request guard (token scopes, IP allowlist, rate limit, audit), the health/deploy/diagnostics runners and the response factory. It ships no controllers or routes. For Shopware 6.6+, the bridge package below provides the endpoints; in another Symfony application you write thin controllers yourself (see [Extending: New Bridge](https://github.com/yorvolabs/canary-platform/blob/main/docs/extending/new-bridge.md)).
+
 ## Features
 
 - **Health probes** — liveness and readiness endpoints suitable for Kubernetes / load balancer checks
@@ -56,7 +58,9 @@ YorvoLabs\Canary\Auth\RequestGuardSubscriber:
     tags: [kernel.event_subscriber]
 ```
 
-4. **Make a request**
+4. **Route a controller** under the prefix, for example `/canary/health/live` returning `ResponseFactory::ok(['status' => 'alive'])` (the Shopware bridge ships these controllers; for your own, see [Extending: New Bridge](https://github.com/yorvolabs/canary-platform/blob/main/docs/extending/new-bridge.md))
+
+5. **Make a request**
 
 ```bash
 curl -H "Authorization: Bearer $CANARY_TOKEN_MONITORING" \

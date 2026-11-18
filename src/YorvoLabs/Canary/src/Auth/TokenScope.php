@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace YorvoLabs\Canary\Auth;
 
 /**
- * Token permission scopes, ordered from least to most privileged.
+ * Token permission scopes.
  *
+ * The scopes are not a hierarchy: each non-ADMIN scope is matched exactly, so a
+ * CACHE token cannot call the diagnostics endpoints and vice versa.
  * ADMIN is the supertoken: it satisfies any scope check.
- * All other scopes are isolated — a CACHE token cannot call the diagnostics endpoint.
  */
 enum TokenScope: string
 {

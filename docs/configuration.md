@@ -16,10 +16,13 @@ After changing any environment variable, run `bin/console cache:clear`.
 | `CANARY_TOKEN_DEPLOY` | `tokenDeploy` | Token for `/deploy/*` endpoints |
 | `CANARY_TOKEN_ADMIN` | `tokenAdmin` | Supertoken — satisfies all scope checks |
 
-All tokens must be at least 64 characters (the check measures length only). Generate them with the command below, which makes 32 random bytes, hex-encoded:
+All tokens must be at least 64 characters (the check measures length only). Generate them as 32 random bytes, hex-encoded:
 
 ```bash
+# Shopware plugin:
 bin/console canary:token:generate <scope>
+# any shell:
+php -r "echo bin2hex(random_bytes(32)) . PHP_EOL;"
 ```
 
 Only the scopes you need have to be configured. Calling an endpoint whose token is not set returns `503 Service Unavailable`.

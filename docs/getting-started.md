@@ -24,7 +24,7 @@ The plugin ships the core library (`yorvolabs/canary`) as a dependency; you do n
 composer require yorvolabs/canary
 ```
 
-Register `RequestGuardSubscriber` as a kernel event subscriber and wire the controllers into your routing. See [Extending: New Bridge](extending/new-bridge.md) for the full wiring guide.
+The core package contains the request guard, the runners and the response factory, but no controllers or routes. Register `RequestGuardSubscriber` as a kernel event subscriber, then write thin controllers that call the core runners and route them under the prefix. See [Extending: New Bridge](extending/new-bridge.md) for the full wiring guide.
 
 ## Generating tokens
 
